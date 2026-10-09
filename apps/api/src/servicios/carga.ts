@@ -15,7 +15,8 @@ import { detectarTipo, type TipoArchivo } from "../archivos/tipo.js";
 import { ErrorHttp, type UsuarioSesion } from "../auth/sesiones.js";
 import type { BaseDeDatos, Ejecutor } from "../db/conexion.js";
 import { archivos, comprobanteArchivos } from "../db/esquema.js";
-import { altaDesdeExtraccion, exigirVisible, type ResultadoAlta } from "./comprobantes.js";
+import { altaDesdeExtraccion, AVISO_LEYENDO, exigirVisible, type ResultadoAlta } from "./comprobantes.js";
+import { encolarLectura } from "./trabajos.js";
 import { comprobantes } from "../db/esquema.js";
 
 export interface ArchivoRecibido {
@@ -58,36 +59,36 @@ export async function guardarArchivo(
   return { archivo: carrera!, nuevo: false, tipo };
 }
 
-/** Elige automáticamente XML, texto digital u OCR (sección 6, RF-003). */
-export async function extraer(tipo: TipoArchivo, contenido: Buffer): Promise<{ extraccion: ResultadoExtraccion; estadoTecnico: string }> {
+/**
+ * Elige automáticamente XML, texto digital u OCR (sección 6, RF-003). Las imágenes y los
+ * PDF escaneados se leen en segundo plano (cola de trabajos): `requiereLectura`.
+ */
+export async function extraer(
+  tipo: TipoArchivo,
+  contenido: Buffer,
+): Promise<{ extraccion: ResultadoExtraccion; estadoTecnico: string; requiereLectura: boolean }> {
   if (tipo === "XML") {
-    const texto = contenido.toString("utf8");
-    const extraccion = extraerDeXmlSifen(texto);
-    if (!extraccion.indicios.xmlSifen) {
-      return { extraccion, estadoTecnico: "XML_INVALIDO" };
-    }
+    const extraccion = extraerDeXmlSifen(contenido.toString("utf8"));
     // La verificación ante SIFEN queda pendiente (sección 11.5).
-    return { extraccion, estadoTecnico: "VALIDACION_PENDIENTE" };
+    return { extraccion, estadoTecnico: extraccion.indicios.xmlSifen ? "VALIDACION_PENDIENTE" : "XML_INVALIDO", requiereLectura: false };
   }
   if (tipo === "PDF") {
     try {
       const pdf = await extraerTextoPdf(contenido);
-      if (pdf.escaneado) {
-        const extraccion = resultadoVacio();
-        extraccion.advertencias.push("PDF escaneado: la lectura automática por OCR se incorpora en la Fase 4; completá los datos a mano");
-        return { extraccion, estadoTecnico: "RECIBIDO" };
+      if (!pdf.escaneado) {
+        const extraccion = extraerDeTexto(pdf.texto);
+        return { extraccion, estadoTecnico: extraccion.indicios.cdcValido ? "VALIDACION_PENDIENTE" : "EXTRAIDO", requiereLectura: false };
       }
-      const extraccion = extraerDeTexto(pdf.texto);
-      return { extraccion, estadoTecnico: extraccion.indicios.cdcValido ? "VALIDACION_PENDIENTE" : "EXTRAIDO" };
     } catch {
       const extraccion = resultadoVacio();
       extraccion.advertencias.push("El PDF está protegido, dañado o no se pudo leer");
-      return { extraccion, estadoTecnico: "ILEGIBLE" };
+      return { extraccion, estadoTecnico: "ILEGIBLE", requiereLectura: false };
     }
   }
+  // Imagen o PDF escaneado: OCR y QR en la cola.
   const extraccion = resultadoVacio();
-  extraccion.advertencias.push("Imagen guardada como evidencia: la lectura automática (OCR y QR) se incorpora en la Fase 4; completá los datos a mano");
-  return { extraccion, estadoTecnico: "RECIBIDO" };
+  extraccion.advertencias.push(AVISO_LEYENDO);
+  return { extraccion, estadoTecnico: "PROCESANDO", requiereLectura: true };
 }
 
 export interface OpcionesCarga {
@@ -121,7 +122,7 @@ export async function procesarArchivo(
         exigirVisible(usuario, vinculo);
         return { nombre: archivo.nombre, resultado: "YA_REGISTRADO" as const, comprobanteId: vinculo.comprobanteId, avisos: ["Este archivo ya se había cargado"] };
       }
-      const { extraccion, estadoTecnico } = await extraer(tipo.tipo, archivo.contenido);
+      const { extraccion, estadoTecnico, requiereLectura } = await extraer(tipo.tipo, archivo.contenido);
       const alta = await altaDesdeExtraccion(tx, {
         extraccion,
         canal: archivo.canal === "CAMARA" ? "CAMARA" : archivo.canal === "CORREO" ? "CORREO" : "CARGA",
@@ -133,6 +134,7 @@ export async function procesarArchivo(
         request,
         origen: opciones.origen,
       });
+      if (requiereLectura && alta.resultado === "CREADO") await encolarLectura(tx, alta.comprobanteId, fila.id);
       return { nombre: archivo.nombre, ...alta };
     });
   } catch (error) {

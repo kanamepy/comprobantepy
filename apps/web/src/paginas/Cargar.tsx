@@ -108,8 +108,9 @@ export function Cargar() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Cargar comprobantes</h1>
       <p className="text-slate-700">
-        El sistema lee automáticamente los XML de facturas electrónicas y los PDF con texto. Las fotos y los PDF escaneados se
-        guardan como evidencia y los datos se completan a mano (la lectura automática de imágenes llega en una etapa posterior).
+        El sistema lee automáticamente los XML de facturas electrónicas, los PDF, las fotos y los PDF escaneados (con OCR y el
+        código QR de las facturas electrónicas). Las fotos se leen en segundo plano: el comprobante aparece enseguida y los datos
+        se completan en unos segundos. Revisá siempre los datos marcados en amarillo.
         {nombreActivo ? (
           <> Si el documento no indica a quién está emitido, se asigna a <strong>{nombreActivo}</strong>.</>
         ) : (

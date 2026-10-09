@@ -36,12 +36,15 @@ import {
   usuarios,
 } from "../db/esquema.js";
 import { procesarArchivo, type ResultadoCarga } from "../servicios/carga.js";
+import { encolarLectura } from "../servicios/trabajos.js";
 import {
+  AVISO_LEYENDO,
   altaDesdeExtraccion,
   buscarPosiblesDuplicados,
   editarComprobante,
   ejecutarAccion,
   estadoTimbrado,
+  exigirPerfil,
   exigirVisible,
   guardarImputacion,
   idsVisibles,
@@ -299,6 +302,30 @@ export async function rutasComprobantes(
     const cambios = validar(esquemaEdicionComprobante, request.body);
     const fila = await db.transaction((tx) => editarComprobante(tx, Number(request.params.id), cambios, request.usuario!, request));
     return { comprobante: publico(fila) };
+  });
+
+  /** Vuelve a leer automáticamente las imágenes y PDF escaneados del comprobante. */
+  app.post<{ Params: { id: string } }>("/:id/releer", async (request) => {
+    const id = Number(request.params.id);
+    const [fila] = await db.select().from(comprobantes).where(eq(comprobantes.id, id));
+    if (!fila) throw new ErrorHttp(404, "NO_ENCONTRADO", "Comprobante inexistente");
+    exigirVisible(request.usuario!, fila);
+    exigirPerfil(request.usuario!, fila.contribuyenteId, ["AUXILIAR", "FINANCIERO"]);
+    const lista = await db
+      .select({ id: archivos.id, tipo: archivos.tipoDetectado })
+      .from(comprobanteArchivos)
+      .innerJoin(archivos, eq(archivos.id, comprobanteArchivos.archivoId))
+      .where(eq(comprobanteArchivos.comprobanteId, id));
+    const leibles = lista.filter((a) => a.tipo !== "XML");
+    if (!leibles.length) throw new ErrorHttp(409, "SIN_IMAGENES", "El comprobante no tiene imágenes ni PDF para leer");
+    await db.transaction(async (tx) => {
+      for (const a of leibles) await encolarLectura(tx, id, a.id);
+      await tx
+        .update(comprobantes)
+        .set({ estadoTecnico: "PROCESANDO", advertenciasExtraccion: [...new Set([...(fila.advertenciasExtraccion as string[]), AVISO_LEYENDO])] })
+        .where(eq(comprobantes.id, id));
+    });
+    return { encolados: leibles.length };
   });
 
   app.put<{ Params: { id: string } }>("/:id/imputacion", async (request) => {

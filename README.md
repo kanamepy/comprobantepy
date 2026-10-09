@@ -27,8 +27,9 @@ La especificación funcional completa es la versión 4.6 (`Especificacion_Funcio
 | Recepción por correo: buzón central Gmail, reenvío desde los correos de cada titular, conexión directa limitada a una etiqueta | ✅ (probado con un Gmail simulado) |
 | Correos sin procesar dos veces, un registro aunque llegue por varios buzones, reenvíos de desconocidos a revisión, alertas si se pierde la conexión | ✅ |
 | Carga manual de correos guardados (.eml) | ✅ |
-| Fase 4: lectura automática de fotos y PDF escaneados (OCR y QR) | ⏳ próxima etapa |
-| Fases 5 y 6: seguimiento y proyección del IRP-RSP, robustez | ⏳ |
+| Lectura automática de fotos y PDF escaneados: OCR en español, QR de facturas electrónicas, aviso de fotos borrosas | ✅ |
+| Fase 5: seguimiento y proyección del IRP-RSP | ⏳ próxima etapa |
+| Fase 6: robustez y ampliaciones | ⏳ |
 
 ## Tecnologías
 
@@ -140,6 +141,7 @@ Para detener la aplicación: `Ctrl + C` en la terminal. Para detener la base de 
 | `npm run typecheck` | Verifica los tipos de TypeScript. |
 | `npm run build` | Compila todo para producción. |
 | `npm start` | Inicia la versión compilada (la API también sirve el frontend en el puerto 3000). |
+| `npm run worker` | Inicia la versión compilada del proceso trabajador (lectura de imágenes y correo). |
 | `npm run db:generate` | Crea una nueva migración después de cambiar `apps/api/src/db/esquema.ts`. |
 | `npm run db:migrate` | Aplica las migraciones pendientes. |
 
@@ -197,6 +199,18 @@ Así la aplicación nunca accede al resto de sus mensajes:
 
 También se puede reenviar a mano un correo puntual, o guardarlo como archivo `.eml` y cargarlo desde **Cargar**.
 
+## Lectura automática de fotos y PDF escaneados
+
+Las fotos (desde la cámara o archivos) y los PDF escaneados se leen en segundo plano con OCR en español; si la imagen tiene el código QR de una factura electrónica, se toman sus datos (CDC, receptor y total) y el comprobante se marca como electrónico. Los datos leídos por OCR quedan resaltados en amarillo para revisarlos. Si una foto sale borrosa o con poca resolución, la aplicación lo avisa.
+
+La lectura la hace el **proceso trabajador**: con `npm run dev` ya se inicia; en producción hay que ejecutar `npm run worker` además de `npm start`.
+
+Para medir la exactitud con comprobantes reales (sección 21.3), poné en una carpeta las fotos o PDF y, por cada uno, un `.json` con el mismo nombre y los valores correctos, y ejecutá:
+
+```bash
+npm run medir-lectura -w @comprobantepy/api -- ruta/a/la/carpeta
+```
+
 ## Respaldo
 
 Para no perder información hay que respaldar **las dos cosas**: la base de datos PostgreSQL y la carpeta `datos/archivos` (o la indicada en `CARPETA_ARCHIVOS`). También guardá la `CLAVE_CIFRADO`: sin ella los archivos no se pueden abrir.
@@ -216,5 +230,6 @@ Estos puntos están marcados **[A CONFIRMAR]** en la especificación. En el cód
 
 - La separación por contribuyente se aplica en la capa de acceso a datos de la API. La segunda barrera en la base (Row Level Security con un usuario de base sin privilegios) se agrega en la fase de robustez.
 - La verificación de la firma digital del XML y el antivirus se agregan en fases posteriores.
+- La lectura por OCR se probó con imágenes generadas (nítidas, borrosas, inclinadas y PDF escaneados). Con fotos reales tomadas con el celular la exactitud puede ser menor: conviene medirla con `npm run medir-lectura` y, si no alcanza los objetivos, evaluar un servicio de OCR de pago por uso (sección 21.4).
 - La lectura de Gmail se probó con un Gmail simulado (no hay una cuenta real conectada en el entorno de desarrollo). La primera conexión real conviene hacerla con pocos correos.
 - Las respuestas automáticas a los remitentes (sección 7.5) están desactivadas, como pide la especificación; se pueden agregar en la fase de ampliaciones. La aplicación nunca envía correos.

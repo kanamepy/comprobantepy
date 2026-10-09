@@ -32,6 +32,7 @@ import {
   type PerfilFlujo,
   type Problema,
   type ResultadoExtraccion,
+  UMBRAL_CONFIANZA,
 } from "@comprobantepy/shared";
 import { and, desc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
@@ -483,6 +484,8 @@ export async function altaDesdeExtraccion(tx: Transaccion, datos: DatosAlta): Pr
 }
 
 async function sugerirImputacion(tx: Transaccion, id: number, contribuyenteId: number, proveedorId: number) {
+  const [propia] = await tx.select({ id: imputaciones.id }).from(imputaciones).where(eq(imputaciones.comprobanteId, id)).limit(1);
+  if (propia) return;
   const [anterior] = await tx
     .select({ id: comprobantes.id, porcentajeNoImputado: comprobantes.porcentajeNoImputado })
     .from(comprobantes)
@@ -913,4 +916,154 @@ export async function reevaluarPorContribuyente(tx: Transaccion, contribuyenteId
     .from(comprobantes)
     .where(and(eq(comprobantes.contribuyenteId, contribuyenteId), ne(comprobantes.estadoFlujo, "ANULADO"), isNotNull(comprobantes.id)));
   for (const f of filas) await reevaluar(tx, f.id);
+}
+
+// ---------------------------------------------------------------------------
+// Lectura automática posterior (OCR y QR, Fase 4)
+// ---------------------------------------------------------------------------
+
+/** Aviso que se muestra mientras la lectura está en la cola. */
+export const AVISO_LEYENDO = "Leyendo la imagen automáticamente…";
+
+/**
+ * Aplica al comprobante el resultado de la lectura de una imagen o PDF escaneado:
+ * completa los campos sin pisar correcciones manuales, identifica proveedor y
+ * receptor, y si resulta ser otra representación de un comprobante ya registrado,
+ * la vincula a ese registro (sección 7.4).
+ */
+export async function aplicarLectura(
+  tx: Transaccion,
+  id: number,
+  extraccion: ResultadoExtraccion | null,
+  estadoTecnico: string,
+  avisoError?: string,
+) {
+  const [fila] = await tx.select().from(comprobantes).where(eq(comprobantes.id, id)).for("update");
+  if (!fila) return;
+  const avisos = (fila.advertenciasExtraccion as string[]).filter((a) => a !== AVISO_LEYENDO);
+  if (avisoError) avisos.push(avisoError);
+  if (extraccion) avisos.push(...extraccion.advertencias);
+
+  const editable = ESTADOS_EDITABLES.includes(fila.estadoFlujo as EstadoFlujo);
+  if (!extraccion || !editable) {
+    await tx.update(comprobantes).set({ estadoTecnico, advertenciasExtraccion: avisos, actualizadoEn: new Date() }).where(eq(comprobantes.id, id));
+    await reevaluar(tx, id);
+    return;
+  }
+
+  const actuales = resultadoVacio();
+  actuales.campos = (fila.camposOrigen ?? {}) as CamposExtraidos;
+  const nuevos = resultadoVacio();
+  nuevos.campos = Object.fromEntries(
+    Object.entries(extraccion.campos).filter(([clave]) => (actuales.campos as Record<string, CampoExtraido>)[clave]?.fuente !== "MANUAL"),
+  );
+  const combinado = combinarExtracciones(actuales, nuevos).campos;
+  const columnas = columnasDesdeCampos(combinado);
+  const cambios: Partial<typeof comprobantes.$inferInsert> = {};
+  for (const clave of Object.keys(columnas) as (keyof typeof columnas)[]) {
+    const campo = clave as CampoComprobante;
+    if (CAMPOS_COMPROBANTE.includes(campo) && combinado[campo] && combinado[campo] !== actuales.campos[campo]) {
+      (cambios as Record<string, unknown>)[clave] = columnas[clave];
+    }
+  }
+
+  let proveedorId = fila.proveedorId;
+  const emisorRuc = combinado.emisorRuc?.valor;
+  if (!proveedorId && emisorRuc && /^\d+$/.test(emisorRuc)) {
+    const proveedor = await resolverProveedor(tx, {
+      tipoIdentificacion: 11,
+      numero: emisorRuc,
+      dv: entero(combinado.emisorDv?.valor ?? null),
+      razonSocial: combinado.emisorNombre?.valor ?? null,
+      fuente: combinado.emisorRuc!.fuente,
+    });
+    proveedorId = proveedor.id;
+    cambios.proveedorId = proveedor.id;
+  }
+
+  // ¿Es otra representación de un comprobante ya registrado?
+  const clave = {
+    cdc: cambios.cdc !== undefined ? cambios.cdc : fila.cdc,
+    proveedorId,
+    tipoComprobante: cambios.tipoComprobante !== undefined ? cambios.tipoComprobante : fila.tipoComprobante,
+    timbrado: cambios.timbrado !== undefined ? cambios.timbrado : fila.timbrado,
+    numero: cambios.numero !== undefined ? cambios.numero : fila.numero,
+  };
+  const existente = await buscarDuplicadoExacto(tx, clave, id);
+  if (existente) {
+    const sinCorrecciones = !Object.values(fila.camposOrigen as Record<string, CampoExtraido>).some((c) => c?.fuente === "MANUAL");
+    if (sinCorrecciones && ESTADOS_AUTOMATICOS.includes(fila.estadoFlujo as EstadoFlujo)) {
+      const propios = await tx.select({ archivoId: comprobanteArchivos.archivoId }).from(comprobanteArchivos).where(eq(comprobanteArchivos.comprobanteId, id));
+      for (const { archivoId } of propios) {
+        await tx.insert(comprobanteArchivos).values({ comprobanteId: existente.id, archivoId }).onConflictDoNothing();
+      }
+      const motivo = `Es otra representación del comprobante n.° ${existente.id}: el archivo se agregó como evidencia de ese registro`;
+      await tx
+        .update(comprobantes)
+        .set({ estadoFlujo: "ANULADO", estadoTecnico, anuladoMotivo: motivo, anuladoEn: new Date(), motivoEstado: motivo, advertenciasExtraccion: [...avisos, motivo] })
+        .where(eq(comprobantes.id, id));
+      await registrarAuditoria(tx, { entidad: "comprobante", entidadId: id, contribuyenteId: fila.contribuyenteId, accion: "UNIFICADO", motivo, origen: "SISTEMA" });
+      await registrarAuditoria(tx, { entidad: "comprobante", entidadId: existente.id, contribuyenteId: existente.contribuyenteId, accion: "EVIDENCIA_ASOCIADA", valorNuevo: { desdeComprobante: id }, origen: "SISTEMA" });
+      await reevaluar(tx, existente.id);
+      return;
+    }
+    for (const k of ["cdc", "numero", "timbrado"] as const) delete cambios[k];
+    avisos.push(`Los datos leídos coinciden con el comprobante n.° ${existente.id}: revisá si es un duplicado`);
+  }
+
+  // Naturaleza: un CDC (QR o impreso) indica documento electrónico (sección 6.1).
+  const naturalezaManual = (fila.camposOrigen as Record<string, CampoExtraido>).naturaleza?.fuente === "MANUAL";
+  const sugerida = determinarNaturaleza(extraccion);
+  if (!naturalezaManual && sugerida.naturaleza !== "NO_DETERMINADA" && sugerida.naturaleza !== fila.naturaleza) {
+    if (fila.naturaleza === "NO_DETERMINADA" || sugerida.naturaleza === "ELECTRONICO") {
+      cambios.naturaleza = sugerida.naturaleza;
+      cambios.naturalezaMotivo = sugerida.motivo;
+    }
+  }
+
+  // Receptor → contribuyente (sección 2.3). Con baja confianza solo se avisa.
+  const receptor = combinado.receptorNumero;
+  if (receptor && cambios.receptorNumero !== undefined) {
+    const asignacion = await contribuyentePorReceptor(tx, receptor.valor);
+    if (asignacion.estado === "ADMINISTRADO" && asignacion.id !== fila.contribuyenteId) {
+      cambios.contribuyenteId = asignacion.id;
+      cambios.asignacionManual = false;
+      if (fila.contribuyenteId) avisos.push("Se asignó al contribuyente que figura como receptor en el documento");
+    } else if (asignacion.estado === "NO_ADMINISTRADO") {
+      if (receptor.confianza >= UMBRAL_CONFIANZA) {
+        cambios.contribuyenteId = null;
+        cambios.asignacionManual = false;
+        avisos.push("Receptor no administrado: el comprobante queda pendiente de asignación");
+      } else {
+        avisos.push(`Se leyó como receptor ${receptor.valor}, que no es un contribuyente administrado: verificalo`);
+      }
+    }
+  }
+
+  const timbradoNumero = cambios.timbrado !== undefined ? cambios.timbrado : fila.timbrado;
+  if (cambios.proveedorId !== undefined || cambios.timbrado !== undefined) {
+    cambios.timbradoId = (await resolverTimbrado(tx, proveedorId, timbradoNumero ?? null))?.id ?? null;
+  }
+
+  await tx
+    .update(comprobantes)
+    .set({
+      ...cambios,
+      camposOrigen: { ...(fila.camposOrigen as object), ...combinado },
+      estadoTecnico,
+      advertenciasExtraccion: [...new Set(avisos)],
+      actualizadoEn: new Date(),
+    })
+    .where(eq(comprobantes.id, id));
+  await registrarAuditoria(tx, {
+    entidad: "comprobante",
+    entidadId: id,
+    contribuyenteId: cambios.contribuyenteId !== undefined ? cambios.contribuyenteId : fila.contribuyenteId,
+    accion: "LECTURA_AUTOMATICA",
+    valorNuevo: { estadoTecnico, campos: Object.keys(nuevos.campos) },
+    origen: "SISTEMA",
+  });
+  const contribuyente = cambios.contribuyenteId !== undefined ? cambios.contribuyenteId : fila.contribuyenteId;
+  if (contribuyente && proveedorId && cambios.proveedorId !== undefined) await sugerirImputacion(tx, id, contribuyente, proveedorId);
+  await reevaluarConRelacionados(tx, id);
 }

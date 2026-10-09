@@ -78,7 +78,8 @@ export function extraerDeTexto(textoOriginal: string, fuente: FuenteDato = "PDF_
     .find((l) => /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(l) && !/^(kude|factura|ruc|timbrado|fecha)/i.test(l));
   if (primerRenglon && primerRenglon.length <= 120) fijar("emisorNombre", primerRenglon, 0.5);
 
-  const timbrado = /timbrado\s*(?:n(?:[°ºo.]|ro\.?)?\s*)?:?\s*(\d{8})\b/i.exec(texto);
+  // Tolerante a lo que suele leer el OCR en lugar de "N°" ("N*", "Nº", "Nro.", "No").
+  const timbrado = /timbrado\D{0,10}?(\d{8})\b/i.exec(texto);
   fijar("timbrado", timbrado?.[1], 0.8);
 
   if (!resultado.campos.numero) {

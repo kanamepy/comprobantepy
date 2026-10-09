@@ -183,6 +183,14 @@ export function Comprobante() {
     void cargar();
   }, [cargar]);
 
+  // Mientras la imagen se lee en segundo plano, se actualiza sola cada 3 segundos.
+  const leyendo = d?.comprobante.estadoTecnico === "PROCESANDO";
+  useEffect(() => {
+    if (!leyendo) return;
+    const temporizador = setInterval(() => void cargar(), 3000);
+    return () => clearInterval(temporizador);
+  }, [leyendo, cargar]);
+
   if (!d) {
     return mensaje ? <p role="alert" className="error-campo">⚠ {mensaje.texto}</p> : <p role="status">Cargando…</p>;
   }
@@ -286,6 +294,11 @@ export function Comprobante() {
       </section>
       {c.motivoEstado && <p className="text-sm">Motivo del estado: {c.motivoEstado}</p>}
 
+      {leyendo && (
+        <p role="status" className="tarjeta border-blue-300 bg-blue-50 font-medium text-blue-900">
+          ⏳ Leyendo la imagen automáticamente… los datos aparecen en unos segundos.
+        </p>
+      )}
       {mensaje && (
         <p role={mensaje.tipo === "error" ? "alert" : "status"} className={mensaje.tipo === "error" ? "error-campo" : "font-medium text-green-800"}>
           {mensaje.tipo === "error" ? "⚠" : "✔"} {mensaje.texto}
@@ -342,6 +355,22 @@ export function Comprobante() {
                 </li>
               ))}
             </ul>
+          )}
+          {editable && !leyendo && d.archivos.some((a) => a.tipoDetectado !== "XML") && (
+            <button
+              type="button"
+              className="boton-secundario"
+              onClick={async () => {
+                try {
+                  await api(`/comprobantes/${c.id}/releer`, { cuerpo: {} });
+                  await cargar();
+                } catch (err) {
+                  setMensaje({ tipo: "error", texto: err instanceof Error ? err.message : "No se pudo volver a leer" });
+                }
+              }}
+            >
+              ↻ Volver a leer la imagen
+            </button>
           )}
           {d.correos.length > 0 && (
             <ul className="space-y-1 text-sm">

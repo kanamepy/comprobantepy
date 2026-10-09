@@ -548,3 +548,29 @@ export const alertas = pgTable(
   },
   (t) => [index("alertas_abiertas_idx").on(t.tipo).where(sql`${t.resueltaEn} IS NULL`)],
 );
+
+/**
+ * Cola de trabajos sobre PostgreSQL (sección 21.5): lectura OCR de imágenes y PDF
+ * escaneados, con reintentos. Se toman con FOR UPDATE SKIP LOCKED.
+ */
+export const trabajos = pgTable(
+  "trabajos",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tipo: text("tipo", { enum: ["LECTURA"] }).notNull(),
+    comprobanteId: integer("comprobante_id")
+      .notNull()
+      .references(() => comprobantes.id),
+    archivoId: integer("archivo_id")
+      .notNull()
+      .references(() => archivos.id),
+    estado: text("estado", { enum: ["PENDIENTE", "EN_CURSO", "HECHO", "ERROR"] })
+      .notNull()
+      .default("PENDIENTE"),
+    intentos: integer("intentos").notNull().default(0),
+    error: text("error"),
+    disponibleEn: timestamp("disponible_en", { withTimezone: true }).notNull().defaultNow(),
+    ...marcasDeTiempo,
+  },
+  (t) => [index("trabajos_pendientes_idx").on(t.disponibleEn).where(sql`${t.estado} = 'PENDIENTE'`)],
+);

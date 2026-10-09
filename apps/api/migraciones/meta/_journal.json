@@ -43,6 +43,13 @@
       "when": 1791542376315,
       "tag": "0005_fase3_correo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791543066423,
+      "tag": "0006_fase4_trabajos",
+      "breakpoints": true
     }
   ]
 }

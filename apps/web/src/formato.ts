@@ -54,7 +54,7 @@ export function periodoTexto(anio: number, mes: number | null) {
 
 export const ETIQUETA_TECNICO: Record<string, string> = {
   RECIBIDO: "Recibido",
-  PROCESANDO: "Procesando",
+  PROCESANDO: "Leyendo la imagen…",
   EXTRAIDO: "Datos extraídos",
   ILEGIBLE: "Ilegible",
   XML_VALIDO: "XML válido",

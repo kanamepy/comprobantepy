@@ -14,3 +14,4 @@ export * from "./extraccion.js";
 export * from "./naturaleza.js";
 export * from "./sifen.js";
 export * from "./texto.js";
+export * from "./qr.js";
