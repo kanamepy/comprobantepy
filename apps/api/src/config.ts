@@ -34,6 +34,9 @@ export const config = {
   databaseUrl: requerida("DATABASE_URL"),
   sesionHoras: Number(process.env.SESION_HORAS ?? 12),
   claveCifrado: claveCifrado(),
+  /** Carpeta donde se guardan los archivos originales, cifrados. */
+  carpetaArchivos: process.env.CARPETA_ARCHIVOS ?? fileURLToPath(new URL("../../../datos/archivos", import.meta.url)),
+  tamanoMaximoArchivoMb: Number(process.env.TAMANO_MAXIMO_ARCHIVO_MB ?? 20),
   /** Carpeta con el frontend compilado; en producción la API lo sirve. */
   carpetaWeb: fileURLToPath(new URL("../../web/dist", import.meta.url)),
 };

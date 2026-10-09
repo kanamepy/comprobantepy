@@ -1,21 +1,33 @@
 import cookie from "@fastify/cookie";
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import { existsSync } from "node:fs";
+import { almacenamientoLocal, type Almacenamiento } from "./archivos/almacenamiento.js";
 import { ErrorHttp, hookSesion } from "./auth/sesiones.js";
 import { config } from "./config.js";
 import type { BaseDeDatos } from "./db/conexion.js";
+import { rutasArchivos } from "./rutas/archivos.js";
 import { rutasAuth } from "./rutas/auth.js";
+import { rutasCatalogos } from "./rutas/catalogos.js";
+import { rutasComprobantes } from "./rutas/comprobantes.js";
 import { rutasContribuyentes } from "./rutas/contribuyentes.js";
+import { rutasProveedores } from "./rutas/proveedores.js";
 
 export interface OpcionesApp {
   db: BaseDeDatos;
   logger?: boolean;
   servirWeb?: boolean;
+  almacenamiento?: Almacenamiento;
 }
 
-export async function construirApp({ db, logger = true, servirWeb = config.esProduccion }: OpcionesApp) {
+export async function construirApp({
+  db,
+  logger = true,
+  servirWeb = config.esProduccion,
+  almacenamiento = almacenamientoLocal(),
+}: OpcionesApp) {
   const app = Fastify({
     logger: logger ? { level: config.esProduccion ? "info" : "debug", redact: ["req.headers.cookie"] } : false,
     trustProxy: true,
@@ -23,6 +35,10 @@ export async function construirApp({ db, logger = true, servirWeb = config.esPro
 
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
+  await app.register(multipart, {
+    limits: { fileSize: config.tamanoMaximoArchivoMb * 1024 * 1024, files: 50, fields: 20 },
+    throwFileSizeLimit: true,
+  });
   app.decorateRequest("usuario", null);
   app.decorateRequest("sesionId", null);
   app.addHook("onRequest", hookSesion(db));
@@ -42,6 +58,10 @@ export async function construirApp({ db, logger = true, servirWeb = config.esPro
   app.get("/api/salud", async () => ({ ok: true }));
   await app.register(rutasAuth, { prefix: "/api/auth", db });
   await app.register(rutasContribuyentes, { prefix: "/api/contribuyentes", db });
+  await app.register(rutasComprobantes, { prefix: "/api/comprobantes", db, almacenamiento });
+  await app.register(rutasArchivos, { prefix: "/api/archivos", db, almacenamiento });
+  await app.register(rutasProveedores, { prefix: "/api/proveedores", db });
+  await app.register(rutasCatalogos, { prefix: "/api/catalogos", db });
 
   if (servirWeb && existsSync(config.carpetaWeb)) {
     await app.register(fastifyStatic, { root: config.carpetaWeb });

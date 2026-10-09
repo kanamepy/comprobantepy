@@ -15,6 +15,20 @@
       "when": 1791514215549,
       "tag": "0001_auditoria_inmutable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791534306744,
+      "tag": "0002_fase1_comprobantes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791534307798,
+      "tag": "0003_catalogo_obligaciones",
+      "breakpoints": true
     }
   ]
 }
