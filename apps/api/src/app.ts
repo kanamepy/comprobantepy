@@ -13,6 +13,8 @@ import { rutasAuth } from "./rutas/auth.js";
 import { rutasCatalogos } from "./rutas/catalogos.js";
 import { rutasComprobantes } from "./rutas/comprobantes.js";
 import { rutasContribuyentes } from "./rutas/contribuyentes.js";
+import { rutasCorreo } from "./rutas/correo.js";
+import type { FabricaAdaptador } from "./correo/sondeo.js";
 import { rutasLotes } from "./rutas/lotes.js";
 import { rutasProveedores } from "./rutas/proveedores.js";
 import { rutasReportes } from "./rutas/reportes.js";
@@ -22,6 +24,7 @@ export interface OpcionesApp {
   logger?: boolean;
   servirWeb?: boolean;
   almacenamiento?: Almacenamiento;
+  fabricaAdaptadorCorreo?: FabricaAdaptador;
 }
 
 export async function construirApp({
@@ -29,6 +32,7 @@ export async function construirApp({
   logger = true,
   servirWeb = config.esProduccion,
   almacenamiento = almacenamientoLocal(),
+  fabricaAdaptadorCorreo,
 }: OpcionesApp) {
   const app = Fastify({
     logger: logger ? { level: config.esProduccion ? "info" : "debug", redact: ["req.headers.cookie"] } : false,
@@ -66,6 +70,7 @@ export async function construirApp({
   await app.register(rutasCatalogos, { prefix: "/api/catalogos", db });
   await app.register(rutasLotes, { prefix: "/api/lotes", db, almacenamiento });
   await app.register(rutasReportes, { prefix: "/api/reportes", db });
+  await app.register(rutasCorreo, { prefix: "/api/correo", db, almacenamiento, fabricaAdaptador: fabricaAdaptadorCorreo });
 
   if (servirWeb && existsSync(config.carpetaWeb)) {
     await app.register(fastifyStatic, { root: config.carpetaWeb });

@@ -338,6 +338,8 @@ interface DatosAlta {
   naturalezaIndicada: NaturalezaFiscal | null;
   usuario: UsuarioSesion;
   request?: FastifyRequest;
+  /** Origen para la auditoría; por defecto WEB. */
+  origen?: "WEB" | "CORREO";
 }
 
 export type ResultadoAlta =
@@ -407,7 +409,7 @@ export async function altaDesdeExtraccion(tx: Transaccion, datos: DatosAlta): Pr
       await completarConFuenteSuperior(tx, existente.id, campos);
       await registrarAuditoria(
         tx,
-        { entidad: "comprobante", entidadId: existente.id, contribuyenteId: existente.contribuyenteId, accion: "EVIDENCIA_ASOCIADA", valorNuevo: { archivoId: datos.archivoId } },
+        { entidad: "comprobante", entidadId: existente.id, contribuyenteId: existente.contribuyenteId, accion: "EVIDENCIA_ASOCIADA", valorNuevo: { archivoId: datos.archivoId }, origen: datos.origen },
         datos.request,
       );
       await reevaluar(tx, existente.id);
@@ -466,13 +468,13 @@ export async function altaDesdeExtraccion(tx: Transaccion, datos: DatosAlta): Pr
 
   await registrarAuditoria(
     tx,
-    { entidad: "comprobante", entidadId: id, contribuyenteId, accion: "CREAR", valorNuevo: { canal: datos.canal, naturaleza, campos: Object.keys(campos) } },
+    { entidad: "comprobante", entidadId: id, contribuyenteId, accion: "CREAR", valorNuevo: { canal: datos.canal, naturaleza, campos: Object.keys(campos) }, origen: datos.origen },
     datos.request,
   );
   if (asignacionManual) {
     await registrarAuditoria(
       tx,
-      { entidad: "comprobante", entidadId: id, contribuyenteId, accion: "ASIGNACION_MANUAL", motivo: "El documento no identifica al receptor" },
+      { entidad: "comprobante", entidadId: id, contribuyenteId, accion: "ASIGNACION_MANUAL", motivo: "El documento no identifica al receptor", origen: datos.origen },
       datos.request,
     );
   }

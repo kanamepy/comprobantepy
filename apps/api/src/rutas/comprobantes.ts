@@ -28,6 +28,8 @@ import {
   comprobantes,
   contribuyentes,
   imputaciones,
+  mensajeArchivos,
+  mensajesCorreo,
   obligaciones,
   proveedores,
   timbrados,
@@ -230,6 +232,20 @@ export async function rutasComprobantes(
       .innerJoin(archivos, eq(archivos.id, comprobanteArchivos.archivoId))
       .where(eq(comprobanteArchivos.comprobanteId, id))
       .orderBy(archivos.id);
+    // Correos por los que llegó (puede ser más de uno, sección 12).
+    const correos = listaArchivos.length
+      ? await db
+          .selectDistinct({
+            id: mensajesCorreo.id,
+            remitenteOriginal: mensajesCorreo.remitenteOriginal,
+            reenviadoPor: mensajesCorreo.reenviadoPor,
+            asunto: mensajesCorreo.asunto,
+            fecha: mensajesCorreo.fecha,
+          })
+          .from(mensajeArchivos)
+          .innerJoin(mensajesCorreo, eq(mensajesCorreo.id, mensajeArchivos.mensajeId))
+          .where(inArray(mensajeArchivos.archivoId, listaArchivos.map((a) => a.id)))
+      : [];
     const lineas = await db
       .select({ id: imputaciones.id, obligacion: imputaciones.obligacionCodigo, actividadId: imputaciones.actividadId, actividad: actividades.descripcion, porcentaje: imputaciones.porcentaje })
       .from(imputaciones)
@@ -260,6 +276,7 @@ export async function rutasComprobantes(
       timbrado: timbrado ? { ...timbrado, estado: estadoTimbrado(timbrado, fila.fechaEmision) } : null,
       contribuyente: contribuyente ?? null,
       archivos: listaArchivos,
+      correos,
       imputacion: { lineas, porcentajeNoImputado: fila.porcentajeNoImputado },
       problemas,
       destino: fila.tipoComprobante ? destinoExportacion(fila.tipoComprobante, fila.naturaleza) : null,

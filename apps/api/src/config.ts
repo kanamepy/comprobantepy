@@ -37,6 +37,13 @@ export const config = {
   /** Carpeta donde se guardan los archivos originales, cifrados. */
   carpetaArchivos: process.env.CARPETA_ARCHIVOS ?? fileURLToPath(new URL("../../../datos/archivos", import.meta.url)),
   tamanoMaximoArchivoMb: Number(process.env.TAMANO_MAXIMO_ARCHIVO_MB ?? 20),
+  /** Dirección pública de la aplicación (para el retorno de la autorización de Google). */
+  urlPublica: (process.env.URL_PUBLICA ?? "http://localhost:5173").replace(/\/$/, ""),
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+  },
+  correoIntervaloMinutos: Number(process.env.CORREO_INTERVALO_MINUTOS ?? 5),
   /** Carpeta con el frontend compilado; en producción la API lo sirve. */
   carpetaWeb: fileURLToPath(new URL("../../web/dist", import.meta.url)),
 };

@@ -451,3 +451,100 @@ export const loteComprobantes = pgTable(
     index("lote_comprobantes_lote_idx").on(t.loteId),
   ],
 );
+
+/**
+ * Buzones de correo (sección 7): el central, los de origen que reenvían (remitentes
+ * habilitados) y los conectados directamente. La credencial se guarda cifrada.
+ */
+export const buzones = pgTable(
+  "buzones",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    direccion: text("direccion").notNull(),
+    rol: text("rol", { enum: ["CENTRAL", "ORIGEN"] }).notNull(),
+    /** GMAIL_API: la aplicación lee el buzón; REENVIO: solo reenvía al central y nunca se lee. */
+    mecanismo: text("mecanismo", { enum: ["GMAIL_API", "REENVIO"] }).notNull(),
+    titular: text("titular").notNull(),
+    /** Solo se usa si el comprobante no identifica al receptor (sección 7.2). */
+    contribuyenteSugeridoId: integer("contribuyente_sugerido_id").references(() => contribuyentes.id),
+    /** Consulta de Gmail que limita qué mensajes se leen (por ejemplo "label:Comprobantes"). */
+    filtro: text("filtro"),
+    credencialCifrada: text("credencial_cifrada"),
+    estado: text("estado", { enum: ["PENDIENTE_CONEXION", "ACTIVO", "ERROR_AUTENTICACION", "BAJA"] })
+      .notNull()
+      .default("PENDIENTE_CONEXION"),
+    ultimoSondeoEn: timestamp("ultimo_sondeo_en", { withTimezone: true }),
+    /** Marca de un sondeo en curso, para que dos procesos no lean el mismo buzón a la vez. */
+    sondeoEnCurso: timestamp("sondeo_en_curso", { withTimezone: true }),
+    ultimoError: text("ultimo_error"),
+    autorizacionFecha: date("autorizacion_fecha"),
+    autorizacionForma: text("autorizacion_forma"),
+    bajaMotivo: text("baja_motivo"),
+    creadoPor: integer("creado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    ...marcasDeTiempo,
+  },
+  (t) => [uniqueIndex("buzones_direccion_unica").on(sql`lower(${t.direccion})`).where(sql`${t.estado} <> 'BAJA'`)],
+);
+
+/** Cada mensaje recibido, procesado una sola vez (sección 7.3). */
+export const mensajesCorreo = pgTable(
+  "mensajes_correo",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    buzonId: integer("buzon_id").references(() => buzones.id),
+    /** Identificador en el proveedor (id de Gmail) o huella del .eml cargado a mano. */
+    idProveedor: text("id_proveedor").notNull(),
+    messageId: text("message_id"),
+    remitenteOriginal: text("remitente_original"),
+    reenviadoPor: text("reenviado_por"),
+    destinatario: text("destinatario"),
+    asunto: text("asunto"),
+    fecha: timestamp("fecha", { withTimezone: true }),
+    canal: text("canal", { enum: ["BUZON", "EML_MANUAL"] }).notNull(),
+    estado: text("estado", {
+      enum: ["PROCESADO", "OBSERVADO", "DUPLICADO", "SIN_ADJUNTOS", "REMITENTE_NO_HABILITADO", "ERROR", "DESCARTADO"],
+    }).notNull(),
+    /** Resultado por adjunto: nombre, resultado, comprobante y avisos. */
+    detalle: jsonb("detalle").notNull().default([]),
+    resueltoPor: integer("resuelto_por").references(() => usuarios.id),
+    resueltoEn: timestamp("resuelto_en", { withTimezone: true }),
+    /** Mensaje original cifrado, para reprocesarlo si se acepta un remitente no habilitado. */
+    rutaOriginal: text("ruta_original"),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("mensajes_correo_unico").on(sql`coalesce(${t.buzonId}, 0)`, t.idProveedor),
+    index("mensajes_correo_estado_idx").on(t.estado),
+    index("mensajes_correo_message_id_idx").on(t.messageId),
+  ],
+);
+
+/** Relación entre mensajes y archivos: un mismo adjunto puede llegar en varios correos. */
+export const mensajeArchivos = pgTable(
+  "mensaje_archivos",
+  {
+    mensajeId: integer("mensaje_id")
+      .notNull()
+      .references(() => mensajesCorreo.id),
+    archivoId: integer("archivo_id")
+      .notNull()
+      .references(() => archivos.id),
+  },
+  (t) => [primaryKey({ columns: [t.mensajeId, t.archivoId] })],
+);
+
+/** Alertas de integraciones (RF-041): token de correo vencido, errores repetidos, etc. */
+export const alertas = pgTable(
+  "alertas",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    tipo: text("tipo").notNull(),
+    mensaje: text("mensaje").notNull(),
+    buzonId: integer("buzon_id").references(() => buzones.id),
+    creadaEn: timestamp("creada_en", { withTimezone: true }).notNull().defaultNow(),
+    resueltaEn: timestamp("resuelta_en", { withTimezone: true }),
+  },
+  (t) => [index("alertas_abiertas_idx").on(t.tipo).where(sql`${t.resueltaEn} IS NULL`)],
+);

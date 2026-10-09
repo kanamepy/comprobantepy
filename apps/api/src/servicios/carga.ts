@@ -93,9 +93,10 @@ export async function extraer(tipo: TipoArchivo, contenido: Buffer): Promise<{ e
 export interface OpcionesCarga {
   contribuyenteSugerido: number | null;
   naturalezaIndicada: NaturalezaFiscal | null;
+  origen?: "WEB" | "CORREO";
 }
 
-export type ResultadoCarga = (ResultadoAlta & { nombre: string }) | { nombre: string; resultado: "ERROR"; error: string };
+export type ResultadoCarga = (ResultadoAlta & { nombre: string }) | { nombre: string; resultado: "ERROR"; error: string; comprobanteId?: undefined };
 
 /** Procesa un archivo en su propia transacción: un archivo con error no afecta a los demás. */
 export async function procesarArchivo(
@@ -130,6 +131,7 @@ export async function procesarArchivo(
         naturalezaIndicada: opciones.naturalezaIndicada,
         usuario,
         request,
+        origen: opciones.origen,
       });
       return { nombre: archivo.nombre, ...alta };
     });

@@ -43,3 +43,56 @@ export function multipart(archivos: { nombre: string; contenido: Buffer; tipo?: 
   partes.push(Buffer.from(`--${limite}--\r\n`));
   return { payload: Buffer.concat(partes), headers: { "content-type": `multipart/form-data; boundary=${limite}` } };
 }
+
+export interface AdjuntoMime {
+  nombre: string;
+  tipo: string;
+  contenido: Buffer;
+  /** Imagen incrustada en el cuerpo (Content-ID). */
+  incrustada?: boolean;
+}
+
+/** Arma un correo MIME (RFC 822) para las pruebas. */
+export function correoMime(opciones: {
+  de: string;
+  para: string;
+  asunto: string;
+  texto?: string;
+  cabeceras?: Record<string, string>;
+  adjuntos?: AdjuntoMime[];
+  correoAdjunto?: Buffer;
+  messageId?: string;
+}): Buffer {
+  const limite = "limite" + Math.random().toString(16).slice(2);
+  const lineas = [
+    `From: ${opciones.de}`,
+    `To: ${opciones.para}`,
+    `Subject: ${opciones.asunto}`,
+    `Date: Thu, 05 Mar 2026 10:00:00 -0300`,
+    `Message-ID: <${opciones.messageId ?? Math.random().toString(16).slice(2)}@prueba>`,
+    ...Object.entries(opciones.cabeceras ?? {}).map(([k, v]) => `${k}: ${v}`),
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${limite}"`,
+    "",
+    `--${limite}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "",
+    opciones.texto ?? "Adjunto el comprobante.",
+  ];
+  for (const a of opciones.adjuntos ?? []) {
+    lineas.push(
+      `--${limite}`,
+      `Content-Type: ${a.tipo}; name="${a.nombre}"`,
+      a.incrustada ? `Content-Disposition: inline; filename="${a.nombre}"` : `Content-Disposition: attachment; filename="${a.nombre}"`,
+      ...(a.incrustada ? [`Content-ID: <${a.nombre}>`] : []),
+      "Content-Transfer-Encoding: base64",
+      "",
+      a.contenido.toString("base64").replace(/.{76}/g, "$&\r\n"),
+    );
+  }
+  if (opciones.correoAdjunto) {
+    lineas.push(`--${limite}`, 'Content-Type: message/rfc822; name="original.eml"', 'Content-Disposition: attachment; filename="original.eml"', "", opciones.correoAdjunto.toString("utf8"));
+  }
+  lineas.push(`--${limite}--`, "");
+  return Buffer.from(lineas.join("\r\n"));
+}

@@ -12,14 +12,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run build -w @comprobantepy/shared && concurrently -k -n shared,api,web -c gray,blue,green \"npm run build -w @comprobantepy/shared -- --watch --preserveWatchOutput\" \"npm run dev -w @comprobantepy/api\" \"npm run dev -w @comprobantepy/web\"",
+    "dev": "npm run build -w @comprobantepy/shared && concurrently -k -n shared,api,worker,web -c gray,blue,magenta,green \"npm run build -w @comprobantepy/shared -- --watch --preserveWatchOutput\" \"npm run dev -w @comprobantepy/api\" \"npm run worker -w @comprobantepy/api\" \"npm run dev -w @comprobantepy/web\"",
     "build": "npm run build -w @comprobantepy/shared && npm run build -w @comprobantepy/web && npm run build -w @comprobantepy/api",
     "start": "npm run start -w @comprobantepy/api",
     "test": "npm run build -w @comprobantepy/shared && npm run test --workspaces --if-present",
     "typecheck": "npm run build -w @comprobantepy/shared && npm run typecheck --workspaces --if-present",
     "db:generate": "npm run db:generate -w @comprobantepy/api",
     "db:migrate": "npm run build -w @comprobantepy/shared && npm run db:migrate -w @comprobantepy/api",
-    "crear-usuario": "npm run crear-usuario -w @comprobantepy/api --"
+    "crear-usuario": "npm run crear-usuario -w @comprobantepy/api --",
+    "worker": "npm run start:worker -w @comprobantepy/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.5"
