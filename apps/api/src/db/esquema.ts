@@ -319,6 +319,8 @@ export const comprobantes = pgTable(
     observaciones: text("observaciones"),
     version: integer("version").notNull().default(1),
     versionAnteriorId: integer("version_anterior_id"),
+    /** Si la tiene, esta es una versión histórica: la vigente es la indicada (sección 17). */
+    reemplazadoPorId: integer("reemplazado_por_id"),
     anuladoMotivo: text("anulado_motivo"),
     anuladoEn: timestamp("anulado_en", { withTimezone: true }),
     anuladoPor: integer("anulado_por").references(() => usuarios.id),
@@ -327,10 +329,13 @@ export const comprobantes = pgTable(
   },
   (t) => [
     // Duplicados exactos (sección 12): los anulados siguen participando del control.
-    uniqueIndex("comprobantes_cdc_unico").on(t.cdc).where(sql`${t.cdc} IS NOT NULL`),
+    // Las versiones históricas (reemplazadas) no cuentan: la vigente las representa.
+    uniqueIndex("comprobantes_cdc_unico").on(t.cdc).where(sql`${t.cdc} IS NOT NULL AND ${t.reemplazadoPorId} IS NULL`),
     uniqueIndex("comprobantes_clave_negocio_unica")
       .on(t.proveedorId, t.tipoComprobante, t.timbrado, t.numero)
-      .where(sql`${t.proveedorId} IS NOT NULL AND ${t.tipoComprobante} IS NOT NULL AND ${t.timbrado} IS NOT NULL AND ${t.numero} IS NOT NULL`),
+      .where(
+        sql`${t.proveedorId} IS NOT NULL AND ${t.tipoComprobante} IS NOT NULL AND ${t.timbrado} IS NOT NULL AND ${t.numero} IS NOT NULL AND ${t.reemplazadoPorId} IS NULL`,
+      ),
     index("comprobantes_contribuyente_idx").on(t.contribuyenteId),
     index("comprobantes_estado_flujo_idx").on(t.estadoFlujo),
     index("comprobantes_proveedor_fecha_idx").on(t.proveedorId, t.fechaEmision),

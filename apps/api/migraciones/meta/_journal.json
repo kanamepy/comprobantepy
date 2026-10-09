@@ -71,6 +71,13 @@
       "when": 1791546749138,
       "tag": "0009_aislamiento_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791547358439,
+      "tag": "0010_versiones_comprobantes",
+      "breakpoints": true
     }
   ]
 }

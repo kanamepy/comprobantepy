@@ -12,7 +12,7 @@ import {
   type RegistroExportable,
 } from "@comprobantepy/shared";
 import { conciliar, generarLote, type FormatoArchivo } from "@comprobantepy/shared/lote";
-import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { Almacenamiento } from "../archivos/almacenamiento.js";
 import { registrarAuditoria } from "../auditoria.js";
@@ -97,6 +97,7 @@ export async function prepararLote(db: Ejecutor, contribuyenteId: number, period
         ne(comprobantes.estadoFlujo, "ANULADO"),
         gte(comprobantes.fechaEmision, desde),
         lte(comprobantes.fechaEmision, hasta),
+        isNull(comprobantes.reemplazadoPorId),
       ),
     )
     .orderBy(asc(comprobantes.fechaEmision), asc(comprobantes.numero));

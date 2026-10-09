@@ -209,4 +209,45 @@ describe.skipIf(!url)("Fase 2 (integración)", () => {
     expect(excel.estado).toBe(200);
     expect(excel.r.rawPayload.subarray(0, 2).toString()).toBe("PK");
   });
+
+  it("un comprobante aceptado por la DNIT se corrige con una nueva versión (sección 17)", async () => {
+    const original = fisicos[0]!;
+    expect((await pedir("PATCH", `/comprobantes/${original}`, { total: "1" })).json.codigo).toBe("NO_EDITABLE");
+    const r = await pedir("POST", `/comprobantes/${original}/nueva-version`, { motivo: "El total correcto era otro" });
+    expect(r.estado).toBe(201);
+    const nueva = r.json.comprobanteId as number;
+    expect(r.json.version).toBe(2);
+    expect((await pedir("POST", `/comprobantes/${original}/nueva-version`, { motivo: "Otra vez" })).json.codigo).toBe("YA_REEMPLAZADO");
+
+    // La nueva versión se puede corregir y vuelve a recorrer el flujo.
+    expect((await pedir("PATCH", `/comprobantes/${nueva}`, { gravado10: "120000", total: "120000" })).estado).toBe(200);
+    for (const accion of ["ENVIAR_A_REVISION", "CONFIRMAR", "APROBAR"]) {
+      expect((await pedir("POST", `/comprobantes/${nueva}/acciones`, { accion })).estado).toBe(200);
+    }
+    expect((await pedir("GET", `/comprobantes/${nueva}`)).json.elegibilidad.estado).toBe("ELEGIBLE");
+    // La versión histórica no admite acciones ni aparece en la bandeja.
+    expect((await pedir("POST", `/comprobantes/${original}/acciones`, { accion: "ANULAR", motivo: "x" + "yz" })).json.error).toContain("versión histórica");
+    const bandeja = (await pedir("GET", "/comprobantes")).json.comprobantes.map((c: { id: number }) => c.id);
+    expect(bandeja).toContain(nueva);
+    expect(bandeja).not.toContain(original);
+    // El reporte suma solo la versión vigente.
+    const reporte = (await pedir("GET", `/reportes/consolidado?contribuyenteId=${ana}&desde=2026-03-01&hasta=2026-03-31`)).json;
+    expect(reporte.detalle.filter((d: { numero: string }) => d.numero === "001-001-0000001")).toHaveLength(1);
+  });
+
+  it("verificación manual de un documento electrónico ante SIFEN (sección 11.5)", async () => {
+    const electronicoReal = (await pedir("POST", "/comprobantes", { contribuyenteId: ana, naturaleza: "ELECTRONICO" })).json.comprobanteId;
+    await pool.query("UPDATE comprobantes SET estado_tecnico = 'VALIDACION_PENDIENTE' WHERE id = $1", [electronicoReal]);
+    await pedir("PATCH", `/comprobantes/${electronicoReal}`, { observaciones: "x" });
+    let d = (await pedir("GET", `/comprobantes/${electronicoReal}`)).json;
+    expect(d.problemas.map((p: { codigo: string }) => p.codigo)).toContain("SIFEN_SIN_VERIFICAR");
+    await pedir("POST", `/comprobantes/${electronicoReal}/verificacion-sifen`, { resultado: "RECHAZADO_SIFEN", consultaEn: "2026-04-01T10:00:00Z" });
+    d = (await pedir("GET", `/comprobantes/${electronicoReal}`)).json;
+    expect(d.problemas.find((p: { codigo: string }) => p.codigo === "RECHAZADO_SIFEN")?.severidad).toBe("ERROR");
+    await pedir("POST", `/comprobantes/${electronicoReal}/verificacion-sifen`, { resultado: "VALIDADO_SIFEN", consultaEn: "2026-04-01T10:05:00Z" });
+    d = (await pedir("GET", `/comprobantes/${electronicoReal}`)).json;
+    expect(d.comprobante.estadoTecnico).toBe("VALIDADO_SIFEN");
+    expect(d.problemas.map((p: { codigo: string }) => p.codigo)).not.toContain("SIFEN_SIN_VERIFICAR");
+    expect((await pedir("POST", `/comprobantes/${fisicos[1]}/verificacion-sifen`, { resultado: "VALIDADO_SIFEN", consultaEn: "2026-04-01T10:05:00Z" })).json.codigo).toBe("NO_ELECTRONICO");
+  });
 });

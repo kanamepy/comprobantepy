@@ -125,6 +125,10 @@ export interface ComprobanteApi {
   porcentajeNoImputado: string;
   estadoTecnico: string;
   estadoFlujo: string;
+  estadoMarangatu: "INCLUIDO_EN_LOTE" | "ENVIADO" | "ACEPTADO_DNIT" | "RECHAZADO_DNIT" | null;
+  version: number;
+  versionAnteriorId: number | null;
+  reemplazadoPorId: number | null;
   motivoEstado: string | null;
   problemas: ProblemaApi[];
   camposOrigen: Record<string, CampoOrigen | number | undefined>;

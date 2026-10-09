@@ -62,6 +62,8 @@ export interface ComprobanteEvaluable {
   imputacion: Imputacion;
   obligacionesActivas: ReadonlySet<string>;
   posibleDuplicadoPendiente: boolean;
+  /** Estado técnico del documento (sección 15.1). */
+  estadoTecnico?: string;
 }
 
 /** Convierte un importe en la moneda original a guaraníes enteros. [A CONFIRMAR] criterio de redondeo (D-08). */
@@ -198,6 +200,15 @@ export function evaluarComprobante(c: ComprobanteEvaluable): Problema[] {
     agregar("TIMBRADO_NO_VERIFICADO", "ADVERTENCIA", "Timbrado no verificado: registrá la verificación manual en la DNIT", "timbrado");
   } else if (c.estadoTimbrado === "ERROR_DE_CONSULTA") {
     agregar("TIMBRADO_ERROR_CONSULTA", "ADVERTENCIA", "No se pudo consultar el timbrado; reintentar", "timbrado");
+  }
+
+  if (c.naturaleza === "ELECTRONICO") {
+    if (c.estadoTecnico === "RECHAZADO_SIFEN") {
+      agregar("RECHAZADO_SIFEN", "ERROR", "El documento electrónico figura como rechazado o inexistente en SIFEN", "estadoTecnico");
+    } else if (c.estadoTecnico === "VALIDACION_PENDIENTE") {
+      // No bloquea, pero se muestra (sección 11.5).
+      agregar("SIFEN_SIN_VERIFICAR", "ADVERTENCIA", "Documento electrónico sin verificar en SIFEN: podés registrar la consulta en e-Kuatia", "estadoTecnico");
+    }
   }
 
   const imputacion = indicadoresDe(c);

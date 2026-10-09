@@ -40,6 +40,8 @@ import { encolarLectura } from "../servicios/trabajos.js";
 import {
   AVISO_LEYENDO,
   altaDesdeExtraccion,
+  crearNuevaVersion,
+  registrarVerificacionSifen,
   buscarPosiblesDuplicados,
   editarComprobante,
   ejecutarAccion,
@@ -161,6 +163,8 @@ export async function rutasComprobantes(
     if (filtros.contribuyenteId) condiciones.push(eq(comprobantes.contribuyenteId, filtros.contribuyenteId));
     if (filtros.estado) condiciones.push(eq(comprobantes.estadoFlujo, filtros.estado));
     else if (filtros.incluirAnulados !== "true") condiciones.push(ne(comprobantes.estadoFlujo, "ANULADO"));
+    // Las versiones históricas solo se ven junto con los anulados.
+    if (filtros.incluirAnulados !== "true") condiciones.push(isNull(comprobantes.reemplazadoPorId));
     if (filtros.naturaleza) condiciones.push(eq(comprobantes.naturaleza, filtros.naturaleza));
     if (filtros.proveedorId) condiciones.push(eq(comprobantes.proveedorId, filtros.proveedorId));
     if (filtros.buscar) {
@@ -290,7 +294,7 @@ export async function rutasComprobantes(
         tieneBloqueantes: problemas.some(esBloqueante),
         estadoMarangatu: fila.estadoMarangatu,
       }),
-      acciones: accionesDisponibles(fila.estadoFlujo as EstadoFlujo, perfilesFlujo(usuario, fila.contribuyenteId)),
+      acciones: fila.reemplazadoPorId !== null ? [] : accionesDisponibles(fila.estadoFlujo as EstadoFlujo, perfilesFlujo(usuario, fila.contribuyenteId)),
       posiblesDuplicados: posibles,
       historial,
       obligacionesActivas: catalogoObligaciones.filter((o) => activas.has(o.codigo)),
@@ -301,6 +305,29 @@ export async function rutasComprobantes(
   app.patch<{ Params: { id: string } }>("/:id", async (request) => {
     const cambios = validar(esquemaEdicionComprobante, request.body);
     const fila = await db.transaction((tx) => editarComprobante(tx, Number(request.params.id), cambios, request.usuario!, request));
+    return { comprobante: publico(fila) };
+  });
+
+  /** Corrección de un comprobante aceptado por la DNIT: nueva versión vinculada (sección 17). */
+  app.post<{ Params: { id: string } }>("/:id/nueva-version", async (request, reply) => {
+    const { motivo } = validar(z.object({ motivo: z.string().trim().min(5, "Indicá qué se corrige").max(500) }), request.body);
+    const nueva = await db.transaction((tx) => crearNuevaVersion(tx, Number(request.params.id), motivo, request.usuario!, request));
+    reply.code(201);
+    return { comprobanteId: nueva.id, version: nueva.version };
+  });
+
+  /** Verificación manual ante SIFEN con evidencia (sección 11.5). */
+  app.post<{ Params: { id: string } }>("/:id/verificacion-sifen", async (request) => {
+    const datos = validar(
+      z.object({
+        resultado: z.enum(["VALIDADO_SIFEN", "RECHAZADO_SIFEN"]),
+        consultaEn: z.string().min(10, "Indicá cuándo consultaste"),
+        evidenciaArchivoId: z.number().int().positive().nullable().optional(),
+        observacion: z.string().trim().max(500).optional(),
+      }),
+      request.body,
+    );
+    const fila = await db.transaction((tx) => registrarVerificacionSifen(tx, Number(request.params.id), datos, request.usuario!, request));
     return { comprobante: publico(fila) };
   });
 

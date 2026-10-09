@@ -11,7 +11,7 @@ import {
   type Tramo,
   type TratamientoEgreso,
 } from "@comprobantepy/shared";
-import { and, desc, eq, gte, inArray, isNotNull, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import { ErrorHttp } from "../auth/sesiones.js";
 import type { Ejecutor } from "../db/conexion.js";
 import {
@@ -109,6 +109,7 @@ export async function egresosIrp(db: Ejecutor, contribuyenteId: number, ejercici
         lte(comprobantes.fechaEmision, hasta ?? `${ejercicio}-12-31`),
         ne(comprobantes.estadoFlujo, "ANULADO"),
         ne(comprobantes.estadoFlujo, "RECHAZADO"),
+        isNull(comprobantes.reemplazadoPorId),
       ),
     )
     .groupBy(comprobantes.id, proveedores.razonSocial)

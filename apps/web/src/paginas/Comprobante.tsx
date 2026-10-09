@@ -8,10 +8,11 @@ import {
   type AccionFlujo,
   type EstadoFlujo,
 } from "@comprobantepy/shared";
-import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
-import { api, ErrorApi, type CampoOrigen, type DetalleComprobante } from "../api";
-import { DialogoMotivo } from "../componentes/Dialogo";
+import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { api, apiFormulario, ErrorApi, type CampoOrigen, type DetalleComprobante } from "../api";
+import { Campo } from "../componentes/Campo";
+import { Dialogo, DialogoMotivo } from "../componentes/Dialogo";
 import { EditorImputacion, type LineaEditable } from "../componentes/EditorImputacion";
 import { Insignia } from "../componentes/Insignia";
 import {
@@ -165,6 +166,9 @@ export function Comprobante() {
   const [noImputado, setNoImputado] = useState(0);
   const [proveedorNuevo, setProveedorNuevo] = useState<{ tipo: string; identificacion: string; razonSocial: string } | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [pedirNuevaVersion, setPedirNuevaVersion] = useState(false);
+  const [verificandoSifen, setVerificandoSifen] = useState(false);
+  const navegar = useNavigate();
 
   const cargar = useCallback(async () => {
     try {
@@ -262,6 +266,22 @@ export function Comprobante() {
     }
   }
 
+  async function nuevaVersion(motivo: string) {
+    try {
+      const r = await api<{ comprobanteId: number; version: number }>(`/comprobantes/${c.id}/nueva-version`, { cuerpo: { motivo } });
+      setMensaje({ tipo: "ok", texto: `Se creó la versión ${r.version}: corregila y volvé a aprobarla para exportarla` });
+      void navegar(`/comprobantes/${r.comprobanteId}`);
+    } catch (err) {
+      setMensaje({ tipo: "error", texto: err instanceof Error ? err.message : "No se pudo crear la nueva versión" });
+    }
+  }
+
+  const historica = c.reemplazadoPorId !== null;
+  const perfilesDelContribuyente = sesion?.contribuyentes.find((x) => x.id === c.contribuyenteId)?.perfiles ?? [];
+  const puedeVersionar = !historica && c.estadoMarangatu === "ACEPTADO_DNIT" && perfilesDelContribuyente.includes("FINANCIERO");
+  const puedeVerificarSifen =
+    !historica && c.naturaleza === "ELECTRONICO" && perfilesDelContribuyente.some((p) => p === "FINANCIERO" || p === "AUXILIAR");
+
   const archivoPrincipal = d.archivos.find((a) => a.tipoDetectado !== "XML") ?? d.archivos[0];
   const contribuyentesActivos = sesion?.contribuyentes.filter((x) => x.estado === "ACTIVO") ?? [];
   const sugeridaDe = c.camposOrigen._imputacionSugeridaDe as number | undefined;
@@ -293,6 +313,28 @@ export function Comprobante() {
         </span>
       </section>
       {c.motivoEstado && <p className="text-sm">Motivo del estado: {c.motivoEstado}</p>}
+      {historica && (
+        <p role="status" className="tarjeta border-amber-300 bg-amber-50 text-amber-950">
+          🕘 Esta es la versión {c.version}, ya reemplazada. Se conserva solo como historial.{" "}
+          <Link className="font-medium underline" to={`/comprobantes/${c.reemplazadoPorId}`}>
+            Ver la versión vigente
+          </Link>
+        </p>
+      )}
+      {!historica && c.versionAnteriorId !== null && (
+        <p className="text-sm text-slate-700">
+          Versión {c.version} de este comprobante.{" "}
+          <Link className="text-blue-800 underline" to={`/comprobantes/${c.versionAnteriorId}`}>
+            Ver la versión anterior
+          </Link>
+        </p>
+      )}
+      {c.estadoMarangatu && (
+        <p className="text-sm text-slate-700">
+          Marangatu: {ETIQUETA_MARANGATU[c.estadoMarangatu]}
+          {c.estadoMarangatu === "ACEPTADO_DNIT" && !historica && " — para corregirlo, creá una nueva versión."}
+        </p>
+      )}
 
       {leyendo && (
         <p role="status" className="tarjeta border-blue-300 bg-blue-50 font-medium text-blue-900">
@@ -305,8 +347,18 @@ export function Comprobante() {
         </p>
       )}
 
-      {d.acciones.length > 0 && (
+      {(d.acciones.length > 0 || puedeVersionar || puedeVerificarSifen) && (
         <div className="flex flex-wrap gap-2">
+          {puedeVersionar && (
+            <button type="button" className="boton-secundario" onClick={() => setPedirNuevaVersion(true)}>
+              Nueva versión (corregir)
+            </button>
+          )}
+          {puedeVerificarSifen && (
+            <button type="button" className="boton-secundario" onClick={() => setVerificandoSifen(true)}>
+              Verificación en SIFEN
+            </button>
+          )}
           {d.acciones.map((a) => {
             const accion = a as AccionFlujo;
             const clase = accion === "ANULAR" || accion === "RECHAZAR" ? "boton-peligro" : accion === "CONFIRMAR" || accion === "APROBAR" ? "boton-primario" : "boton-secundario";
@@ -640,6 +692,27 @@ export function Comprobante() {
         }}
       />
       <DialogoMotivo
+        abierto={pedirNuevaVersion}
+        titulo="Corregir un comprobante aceptado por la DNIT"
+        textoBoton="Crear nueva versión"
+        alCerrar={() => setPedirNuevaVersion(false)}
+        alConfirmar={(motivo) => {
+          setPedirNuevaVersion(false);
+          void nuevaVersion(motivo);
+        }}
+      />
+      {verificandoSifen && (
+        <VerificacionSifen
+          comprobanteId={c.id}
+          alCerrar={() => setVerificandoSifen(false)}
+          alGuardar={async () => {
+            setVerificandoSifen(false);
+            setMensaje({ tipo: "ok", texto: "Verificación registrada" });
+            await cargar();
+          }}
+        />
+      )}
+      <DialogoMotivo
         abierto={pedirMotivoReceptor}
         titulo="Corregir el receptor leído del documento"
         textoBoton="Guardar corrección"
@@ -650,6 +723,85 @@ export function Comprobante() {
         }}
       />
     </div>
+  );
+}
+
+const ETIQUETA_MARANGATU: Record<string, string> = {
+  INCLUIDO_EN_LOTE: "incluido en un lote",
+  ENVIADO: "enviado, esperando el resultado",
+  ACEPTADO_DNIT: "aceptado por la DNIT",
+  RECHAZADO_DNIT: "rechazado por la DNIT",
+};
+
+/** Registro manual de la consulta del documento electrónico en e-Kuatia (sección 11.5). */
+function VerificacionSifen({ comprobanteId, alCerrar, alGuardar }: { comprobanteId: number; alCerrar: () => void; alGuardar: () => Promise<void> }) {
+  const ahora = new Date();
+  const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const [datos, setDatos] = useState({ resultado: "VALIDADO_SIFEN", consultaEn: local, observacion: "" });
+  const [evidencia, setEvidencia] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const idEvidencia = useId();
+
+  async function enviar(e: FormEvent) {
+    e.preventDefault();
+    try {
+      let evidenciaArchivoId: number | null = null;
+      if (evidencia) {
+        const formulario = new FormData();
+        formulario.set("archivo", evidencia, evidencia.name);
+        evidenciaArchivoId = (await apiFormulario<{ id: number }>("/archivos/evidencia", formulario)).id;
+      }
+      await api(`/comprobantes/${comprobanteId}/verificacion-sifen`, {
+        cuerpo: {
+          resultado: datos.resultado,
+          consultaEn: new Date(datos.consultaEn).toISOString(),
+          observacion: datos.observacion || undefined,
+          evidenciaArchivoId,
+        },
+      });
+      await alGuardar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar");
+    }
+  }
+
+  return (
+    <Dialogo abierto titulo="Verificación en SIFEN" alCerrar={alCerrar}>
+      <form onSubmit={enviar} className="space-y-3">
+        <p className="text-sm text-slate-700">
+          Consultá el CDC en e-Kuatia (consulta pública de documentos electrónicos) y registrá lo que encontraste.
+        </p>
+        <fieldset>
+          <legend className="etiqueta">Resultado</legend>
+          {[
+            ["VALIDADO_SIFEN", "Existe y está aprobado"],
+            ["RECHAZADO_SIFEN", "No existe, fue cancelado o tiene otros datos"],
+          ].map(([valor, texto]) => (
+            <label key={valor} className="flex min-h-11 items-center gap-2">
+              <input type="radio" name="resultado" className="size-5" checked={datos.resultado === valor} onChange={() => setDatos({ ...datos, resultado: valor! })} />
+              {texto}
+            </label>
+          ))}
+        </fieldset>
+        <Campo etiqueta="Fecha y hora de la consulta" type="datetime-local" value={datos.consultaEn} onChange={(e) => setDatos({ ...datos, consultaEn: e.target.value })} />
+        <div>
+          <label className="etiqueta" htmlFor={idEvidencia}>
+            Evidencia (captura o PDF de la consulta, opcional)
+          </label>
+          <input id={idEvidencia} type="file" accept="image/*,application/pdf" className="campo py-2" onChange={(e) => setEvidencia(e.target.files?.[0] ?? null)} />
+        </div>
+        <Campo etiqueta="Observación (opcional)" value={datos.observacion} onChange={(e) => setDatos({ ...datos, observacion: e.target.value })} />
+        {error && <p role="alert" className="error-campo">⚠ {error}</p>}
+        <div className="flex gap-2">
+          <button type="submit" className="boton-primario">
+            Guardar verificación
+          </button>
+          <button type="button" className="boton-secundario" onClick={alCerrar}>
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </Dialogo>
   );
 }
 

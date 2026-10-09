@@ -3,7 +3,7 @@
  * sin duplicar importes por la imputación múltiple.
  */
 import { aGuaranies, destinoExportacion } from "@comprobantepy/shared";
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import type { Ejecutor } from "../db/conexion.js";
 import { actividades, comprobantes, imputaciones, obligaciones, proveedores } from "../db/esquema.js";
 
@@ -32,7 +32,8 @@ export async function reporteConsolidado(db: Ejecutor, contribuyenteId: number, 
     .select({ c: comprobantes, proveedor: proveedores.razonSocial, ruc: proveedores.numeroIdentificacion, dv: proveedores.dv })
     .from(comprobantes)
     .leftJoin(proveedores, eq(proveedores.id, comprobantes.proveedorId))
-    .where(and(eq(comprobantes.contribuyenteId, contribuyenteId), gte(comprobantes.fechaEmision, desde), lte(comprobantes.fechaEmision, hasta)))
+    // Las versiones históricas no se suman: las representa la versión vigente.
+    .where(and(eq(comprobantes.contribuyenteId, contribuyenteId), gte(comprobantes.fechaEmision, desde), lte(comprobantes.fechaEmision, hasta), isNull(comprobantes.reemplazadoPorId)))
     .orderBy(asc(comprobantes.fechaEmision), asc(comprobantes.id));
 
   const ids = filas.map((f) => f.c.id);

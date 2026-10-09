@@ -34,7 +34,7 @@ import {
   type ResultadoExtraccion,
   UMBRAL_CONFIANZA,
 } from "@comprobantepy/shared";
-import { and, desc, eq, inArray, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { registrarAuditoria } from "../auditoria.js";
 import { ErrorHttp, type UsuarioSesion } from "../auth/sesiones.js";
@@ -154,6 +154,10 @@ export async function buscarPosiblesDuplicados(db: Ejecutor, fila: FilaComproban
         eq(comprobantes.total, total),
         // Un duplicado ya anulado deja de marcar al que quedó vigente.
         ne(comprobantes.estadoFlujo, "ANULADO"),
+        // Las versiones del mismo comprobante no son duplicados entre sí.
+        isNull(comprobantes.reemplazadoPorId),
+        fila.versionAnteriorId ? ne(comprobantes.id, fila.versionAnteriorId) : undefined,
+        or(isNull(comprobantes.versionAnteriorId), ne(comprobantes.versionAnteriorId, fila.id)),
       ),
     ));
   return candidatos.filter((c) => !descartados.includes(c.id));
@@ -183,7 +187,7 @@ async function buscarDuplicadoExacto(
     .select({ id: comprobantes.id, contribuyenteId: comprobantes.contribuyenteId, nombre: contribuyentes.nombre, estadoFlujo: comprobantes.estadoFlujo })
     .from(comprobantes)
     .leftJoin(contribuyentes, eq(contribuyentes.id, comprobantes.contribuyenteId))
-    .where(and(or(...condiciones), excluirId ? ne(comprobantes.id, excluirId) : undefined))
+    .where(and(or(...condiciones), isNull(comprobantes.reemplazadoPorId), excluirId ? ne(comprobantes.id, excluirId) : undefined))
     .limit(1));
   return fila ?? null;
 }
@@ -309,6 +313,7 @@ export async function evaluable(db: Ejecutor, fila: FilaComprobante): Promise<Co
     },
     obligacionesActivas: await obligacionesActivas(db, fila.contribuyenteId, fila.fechaEmision),
     posibleDuplicadoPendiente: posibles.length > 0 && fila.estadoFlujo !== "ANULADO",
+    estadoTecnico: fila.estadoTecnico,
   };
 }
 
@@ -824,6 +829,9 @@ export async function ejecutarAccion(
   if (!fila) return { ok: false, id, motivo: "Comprobante inexistente", categoria: "ESTADO" };
   exigirVisible(usuario, fila);
 
+  if (fila.reemplazadoPorId) {
+    return { ok: false, id, motivo: `Es una versión histórica: la vigente es el comprobante n.° ${fila.reemplazadoPorId}`, categoria: "ESTADO" };
+  }
   const perfiles = perfilesFlujo(usuario, fila.contribuyenteId);
   if (!regla.perfiles.some((p) => perfiles.includes(p))) {
     return { ok: false, id, motivo: "Tu perfil no permite esta acción", categoria: "PERMISO" };
@@ -1080,4 +1088,77 @@ export async function aplicarLectura(
   const contribuyente = cambios.contribuyenteId !== undefined ? cambios.contribuyenteId : fila.contribuyenteId;
   if (contribuyente && proveedorId && cambios.proveedorId !== undefined) await sugerirImputacion(tx, id, contribuyente, proveedorId);
   await reevaluarConRelacionados(tx, id);
+}
+
+// ---------------------------------------------------------------------------
+// Versiones (sección 17) y verificación ante SIFEN (sección 11.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Un comprobante aceptado por la DNIT no se modifica: la corrección crea una nueva versión
+ * vinculada que vuelve a recorrer el flujo; la anterior queda como histórica.
+ */
+export async function crearNuevaVersion(tx: Transaccion, id: number, motivo: string, usuario: UsuarioSesion, request?: FastifyRequest) {
+  const [original] = await tx.select().from(comprobantes).where(eq(comprobantes.id, id)).for("update");
+  if (!original) throw new ErrorHttp(404, "NO_ENCONTRADO", "Comprobante inexistente");
+  exigirVisible(usuario, original);
+  exigirPerfil(usuario, original.contribuyenteId, ["FINANCIERO"]);
+  if (original.reemplazadoPorId) throw new ErrorHttp(409, "YA_REEMPLAZADO", `Ya existe una versión más nueva (n.° ${original.reemplazadoPorId})`);
+  if (original.estadoMarangatu !== "ACEPTADO_DNIT") {
+    throw new ErrorHttp(409, "NO_CORRESPONDE", "Solo los comprobantes aceptados por la DNIT se corrigen con una nueva versión; los demás se observan y se editan");
+  }
+  // Marca provisoria para liberar los índices únicos mientras se crea la nueva versión.
+  await tx.update(comprobantes).set({ reemplazadoPorId: id }).where(eq(comprobantes.id, id));
+  const { id: _id, creadoEn: _c, actualizadoEn: _a, reemplazadoPorId: _r, ...datos } = original;
+  const [nueva] = await tx
+    .insert(comprobantes)
+    .values({
+      ...datos,
+      version: original.version + 1,
+      versionAnteriorId: id,
+      estadoFlujo: "OBSERVADO",
+      motivoEstado: `Corrección de un comprobante aceptado por la DNIT: ${motivo}`,
+      estadoMarangatu: null,
+      anuladoMotivo: null,
+      anuladoEn: null,
+      anuladoPor: null,
+      creadoPor: usuario.id,
+    })
+    .returning();
+  await tx.update(comprobantes).set({ reemplazadoPorId: nueva!.id }).where(eq(comprobantes.id, id));
+  const lineas = await imputacionDe(tx, id);
+  if (lineas.length) {
+    await tx.insert(imputaciones).values(lineas.map((l) => ({ comprobanteId: nueva!.id, obligacionCodigo: l.obligacion, actividadId: l.actividadId, porcentaje: l.porcentaje })));
+  }
+  const evidencias = await tx.select({ archivoId: comprobanteArchivos.archivoId }).from(comprobanteArchivos).where(eq(comprobanteArchivos.comprobanteId, id));
+  if (evidencias.length) await tx.insert(comprobanteArchivos).values(evidencias.map((e) => ({ comprobanteId: nueva!.id, archivoId: e.archivoId })));
+  await registrarAuditoria(tx, { entidad: "comprobante", entidadId: id, contribuyenteId: original.contribuyenteId, accion: "REEMPLAZADO_POR_VERSION", valorNuevo: { nuevaVersion: nueva!.id }, motivo }, request);
+  await registrarAuditoria(tx, { entidad: "comprobante", entidadId: nueva!.id, contribuyenteId: original.contribuyenteId, accion: "NUEVA_VERSION", valorNuevo: { version: nueva!.version, anterior: id }, motivo }, request);
+  await reevaluar(tx, nueva!.id);
+  return nueva!;
+}
+
+/** Verificación manual de un documento electrónico en la consulta pública de e-Kuatia, con evidencia. */
+export async function registrarVerificacionSifen(
+  tx: Transaccion,
+  id: number,
+  datos: { resultado: "VALIDADO_SIFEN" | "RECHAZADO_SIFEN"; consultaEn: string; evidenciaArchivoId?: number | null; observacion?: string },
+  usuario: UsuarioSesion,
+  request?: FastifyRequest,
+) {
+  const [fila] = await tx.select().from(comprobantes).where(eq(comprobantes.id, id)).for("update");
+  if (!fila) throw new ErrorHttp(404, "NO_ENCONTRADO", "Comprobante inexistente");
+  exigirVisible(usuario, fila);
+  exigirPerfil(usuario, fila.contribuyenteId, ["AUXILIAR", "FINANCIERO"]);
+  if (fila.naturaleza !== "ELECTRONICO") throw new ErrorHttp(409, "NO_ELECTRONICO", "Solo los documentos electrónicos se verifican en SIFEN");
+  await tx.update(comprobantes).set({ estadoTecnico: datos.resultado, actualizadoEn: new Date() }).where(eq(comprobantes.id, id));
+  if (datos.evidenciaArchivoId) {
+    await tx.insert(comprobanteArchivos).values({ comprobanteId: id, archivoId: datos.evidenciaArchivoId }).onConflictDoNothing();
+  }
+  await registrarAuditoria(
+    tx,
+    { entidad: "comprobante", entidadId: id, contribuyenteId: fila.contribuyenteId, accion: "VERIFICACION_SIFEN", valorAnterior: { estadoTecnico: fila.estadoTecnico }, valorNuevo: datos, motivo: datos.observacion ?? null },
+    request,
+  );
+  return (await reevaluar(tx, id)).fila;
 }
