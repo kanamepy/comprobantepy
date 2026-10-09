@@ -1,0 +1,71 @@
+# Publicación en un servidor (ver README, "Publicar en internet").
+#   1. Copiar .env.prod.example a .env y completarlo.
+#   2. docker compose -f docker-compose.prod.yml up -d --build
+#   3. docker compose -f docker-compose.prod.yml exec app node apps/api/dist/scripts/crear-usuario.js --email ... --nombre "..." --admin
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Definí POSTGRES_ADMIN_PASSWORD en .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Definí APP_DB_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    # Sin puertos publicados: solo la aplicación llega a la base.
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://comprobantepy:${APP_DB_PASSWORD}@postgres:5432/comprobantepy
+      HOST: 0.0.0.0
+      TZ: America/Asuncion
+      PORT: 3000
+    depends_on: [postgres]
+    volumes:
+      - datos:/app/datos
+      - respaldos:/respaldos
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://comprobantepy:${APP_DB_PASSWORD}@postgres:5432/comprobantepy
+      TZ: America/Asuncion
+    command: ["node", "apps/api/dist/worker.js"]
+    depends_on: [app]
+    volumes:
+      - datos:/app/datos
+      - respaldos:/respaldos
+
+  # HTTPS automático (Let's Encrypt) para el dominio de DOMINIO.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO:?Definí DOMINIO en .env}
+    command: ["caddy", "reverse-proxy", "--from", "${DOMINIO}", "--to", "app:3000"]
+    volumes:
+      - caddy:/data
+    depends_on: [app]
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    profiles: ["antivirus"]
+    volumes:
+      - clamav:/var/lib/clamav
+
+volumes:
+  pgdata:
+  datos:
+  caddy:
+  respaldos:
+  clamav:

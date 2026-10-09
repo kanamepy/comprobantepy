@@ -47,7 +47,7 @@ export async function crearSesion(db: BaseDeDatos, usuarioId: number, request: F
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    secure: config.esProduccion,
+    secure: config.urlPublica.startsWith("https://"),
     expires: expiraEn,
   });
   return id;
