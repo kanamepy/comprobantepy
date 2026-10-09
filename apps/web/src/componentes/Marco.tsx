@@ -3,6 +3,9 @@ import { useSesion } from "../sesion";
 
 const enlaces = [
   { a: "/", texto: "Inicio", icono: "🏠" },
+  { a: "/comprobantes", texto: "Bandeja", icono: "🗂" },
+  { a: "/cargar", texto: "Cargar", icono: "📷" },
+  { a: "/proveedores", texto: "Proveedores", icono: "🏪" },
   { a: "/contribuyentes", texto: "Contribuyentes", icono: "👥" },
 ];
 
@@ -18,7 +21,7 @@ export function Marco() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2">
           <span className="mr-auto text-lg font-bold text-blue-800">Comprobantes</span>
           <label className="order-last flex basis-full items-center gap-2 md:order-none md:basis-auto">
-            <span className="sr-only text-sm font-medium md:not-sr-only">Contribuyente:</span>
+            <span className="sr-only text-sm font-medium lg:not-sr-only">Contribuyente:</span>
             <select
               aria-label="Contribuyente activo"
               className="campo md:w-auto"
@@ -33,22 +36,22 @@ export function Marco() {
               ))}
             </select>
           </label>
-          <nav className="hidden gap-1 md:flex" aria-label="Principal">
-            {enlaces.map((e) => (
-              <NavLink
-                key={e.a}
-                to={e.a}
-                end
-                className={({ isActive }) => `boton ${isActive ? "bg-blue-100 text-blue-900" : "text-slate-700 hover:bg-slate-100"}`}
-              >
-                {e.texto}
-              </NavLink>
-            ))}
-          </nav>
           <button type="button" className="boton-secundario" onClick={() => void salir()}>
             Salir
           </button>
         </div>
+        <nav className="mx-auto hidden max-w-6xl gap-1 px-4 pb-2 md:flex" aria-label="Principal">
+          {enlaces.map((e) => (
+            <NavLink
+              key={e.a}
+              to={e.a}
+              end={e.a === "/"}
+              className={({ isActive }) => `boton ${isActive ? "bg-blue-100 text-blue-900" : "text-slate-700 hover:bg-slate-100"}`}
+            >
+              {e.texto}
+            </NavLink>
+          ))}
+        </nav>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6">
@@ -63,9 +66,9 @@ export function Marco() {
           <NavLink
             key={e.a}
             to={e.a}
-            end
+            end={e.a === "/"}
             className={({ isActive }) =>
-              `flex min-h-14 flex-1 flex-col items-center justify-center text-sm ${isActive ? "font-bold text-blue-800" : "text-slate-700"}`
+              `flex min-h-14 flex-1 flex-col items-center justify-center text-xs ${isActive ? "font-bold text-blue-800" : "text-slate-700"}`
             }
           >
             <span aria-hidden="true">{e.icono}</span>

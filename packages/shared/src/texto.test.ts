@@ -38,6 +38,8 @@ describe("extracción desde texto de PDF", () => {
     expect(v("emisorDv")).toBe("9");
     expect(v("total")).toBe("172500");
     expect(v("condicion")).toBe("1");
+    expect(v("tipoComprobante")).toBe("109");
+    expect(v("emisorNombre")).toBe("FARMACIA EJEMPLO S.A.");
     expect(Object.values(r.campos).every((c) => c.fuente === "PDF_TEXTO" && c.confianza < 1)).toBe(true);
     expect(determinarNaturaleza(r).naturaleza).toBe("NO_DETERMINADA");
   });

@@ -8,13 +8,21 @@ La especificación funcional completa es la versión 4.6 (`Especificacion_Funcio
 
 | Parte | Estado |
 |---|---|
-| Estructura del proyecto, base de datos y migraciones | ✅ |
 | Inicio de sesión con segundo factor (TOTP) obligatorio para administrador y financiero | ✅ |
-| Alta y baja de contribuyentes con validación del RUC y autorización del titular | ✅ |
-| Log de auditoría inmutable (la base de datos impide modificarlo o borrarlo) | ✅ |
-| Reglas del núcleo: DV del RUC, número de comprobante, imputación S/N, registros de Compras y Egresos, nombre de archivos, ZIP, conciliación y proyección del IRP-RSP | ✅ (con pruebas, todavía sin pantallas) |
-| Fase 1: proveedores, timbrados, carga de comprobantes, lectura de XML SIFEN, duplicados y planilla de revisión | ⏳ próxima etapa |
-| Fases 2 a 6: lotes desde la interfaz, correo, OCR, tablero del IRP-RSP | ⏳ |
+| Contribuyentes con autorización del titular, obligaciones con vigencia y actividades | ✅ |
+| Carga de comprobantes: varios archivos a la vez, foto con la cámara del celular o carga manual | ✅ |
+| Lectura automática de XML SIFEN y de PDF con texto (incluido el KuDE con CDC) | ✅ |
+| Un único registro aunque el comprobante llegue como XML y PDF; reprocesar no duplica | ✅ |
+| Asignación automática al contribuyente receptor; bloqueo de asignarlo a otro | ✅ |
+| Naturaleza fiscal (físico, electrónico, virtual), destino Compras/Egresos y elegibilidad Marangatu | ✅ |
+| Proveedores a confirmar, validación del RUC y verificación manual de timbrados con evidencia | ✅ |
+| Duplicados exactos bloqueados y posibles duplicados marcados para revisión | ✅ |
+| Bandeja en tarjetas (celular) o tabla (computadora), selección y acciones masivas | ✅ |
+| Imputación múltiple a obligaciones y actividades, con sugerencia según el proveedor | ✅ |
+| Estados de flujo (confirmar, aprobar, observar, rechazar, anular con motivo) e historial | ✅ |
+| Archivos originales guardados cifrados; log de auditoría inmutable | ✅ |
+| Fase 2: lotes de exportación a Marangatu desde la interfaz (las reglas ya están listas) | ⏳ próxima etapa |
+| Fases 3 a 6: correo, OCR de fotos y PDF escaneados, tablero del IRP-RSP | ⏳ |
 
 ## Tecnologías
 
@@ -29,7 +37,8 @@ comprobantepy/
 ├── apps/web/          React + Vite (PWA)
 ├── apps/api/          API Fastify, esquema de la base y migraciones
 ├── packages/shared/   reglas tributarias y validaciones compartidas
-└── docker-compose.yml PostgreSQL y MinIO para desarrollo
+├── datos/archivos/    archivos originales cifrados (se crea solo; no se sube a GitHub)
+└── docker-compose.yml PostgreSQL para desarrollo
 ```
 
 ---
@@ -148,6 +157,10 @@ docker compose exec postgres createdb -U comprobantepy comprobantepy_test
 
 ---
 
+## Respaldo
+
+Para no perder información hay que respaldar **las dos cosas**: la base de datos PostgreSQL y la carpeta `datos/archivos` (o la indicada en `CARPETA_ARCHIVOS`). También guardá la `CLAVE_CIFRADO`: sin ella los archivos no se pueden abrir.
+
 ## Puntos a confirmar antes de producción
 
 Estos puntos están marcados **[A CONFIRMAR]** en la especificación. En el código quedaron como parámetros configurables:
@@ -156,3 +169,10 @@ Estos puntos están marcados **[A CONFIRMAR]** en la especificación. En el cód
 - Fin de línea y delimitador del archivo de importación (D-10): por defecto TXT con tabulaciones y salto de línea `\n`. Hay que confirmarlo con una importación real de prueba en Marangatu.
 - Regla de redondeo del IRP-RSP y tipo de cambio para moneda extranjera (D-08).
 - Vigencia de la Tabla 4 de tipos de comprobante (junio 2021).
+- Rasgos para reconocer un comprobante virtual (D-03): hoy se detecta por la leyenda "comprobante virtual", por marcar al proveedor como emisor virtual o eligiéndolo a mano.
+- Mecanismo para verificar timbrados y documentos electrónicos ante la DNIT/SIFEN (D-04): mientras tanto, verificación manual con evidencia.
+
+## Notas técnicas
+
+- La separación por contribuyente se aplica en la capa de acceso a datos de la API. La segunda barrera en la base (Row Level Security con un usuario de base sin privilegios) se agrega en la fase de robustez.
+- La verificación de la firma digital del XML y el antivirus se agregan en fases posteriores.

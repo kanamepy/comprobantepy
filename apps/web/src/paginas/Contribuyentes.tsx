@@ -2,6 +2,7 @@ import { calcularDV, esquemaContribuyente } from "@comprobantepy/shared";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, ErrorApi, type Contribuyente } from "../api";
 import { Campo } from "../componentes/Campo";
+import { ConfiguracionContribuyente } from "../componentes/ConfiguracionContribuyente";
 import { useSesion } from "../sesion";
 
 /** Fecha local de hoy en formato aaaa-mm-dd (toISOString usaría UTC y en Paraguay podría dar el día siguiente). */
@@ -113,6 +114,13 @@ export function Contribuyentes() {
                 Autorización: {c.autorizacionFecha} · {c.autorizacionForma}
               </p>
               {c.estado === "BAJA" && c.bajaMotivo && <p className="text-sm">Motivo de baja: {c.bajaMotivo}</p>}
+              <details className="pt-2">
+                <summary className="min-h-11 cursor-pointer font-medium text-blue-800">Obligaciones y actividades</summary>
+                <ConfiguracionContribuyente
+                  id={c.id}
+                  puedeEditar={c.estado === "ACTIVO" && (sesion?.usuario.esAdministrador || (sesion?.contribuyentes.find((x) => x.id === c.id)?.perfiles.includes("FINANCIERO") ?? false))}
+                />
+              </details>
               {c.estado === "ACTIVO" && (
                 <div className="pt-2">
                   <button type="button" className="boton-secundario" onClick={() => void darDeBaja(c)}>

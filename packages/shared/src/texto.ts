@@ -55,6 +55,29 @@ export function extraerDeTexto(textoOriginal: string, fuente: FuenteDato = "PDF_
     }
   }
 
+  // Tipo de comprobante por el título del documento.
+  if (!resultado.campos.tipoComprobante) {
+    const tipo = /\bautofactura\b/i.test(texto)
+      ? "101"
+      : /nota\s+de\s+cr[eé]dito/i.test(texto)
+        ? "110"
+        : /nota\s+de\s+d[eé]bito/i.test(texto)
+          ? "111"
+          : /\bfactura\b/i.test(texto)
+            ? "109"
+            : /ticket/i.test(texto)
+              ? "112"
+              : undefined;
+    fijar("tipoComprobante", tipo, 0.6);
+  }
+
+  // La razón social del emisor suele ser el primer renglón con letras del documento.
+  const primerRenglon = texto
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => /[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(l) && !/^(kude|factura|ruc|timbrado|fecha)/i.test(l));
+  if (primerRenglon && primerRenglon.length <= 120) fijar("emisorNombre", primerRenglon, 0.5);
+
   const timbrado = /timbrado\s*(?:n(?:[°ºo.]|ro\.?)?\s*)?:?\s*(\d{8})\b/i.exec(texto);
   fijar("timbrado", timbrado?.[1], 0.8);
 

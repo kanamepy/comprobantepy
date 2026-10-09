@@ -33,12 +33,16 @@ export async function rutasArchivos(app: FastifyInstance, { db, almacenamiento }
     const contenido = await almacenamiento.leer(archivo.ruta);
     const nombre = encodeURIComponent(archivo.nombreOriginal);
     const descargar = (request.query as { descargar?: string }).descargar === "1";
-    return reply
+    reply
       .header("Content-Type", archivo.tipoDetectado === "XML" ? "text/plain; charset=utf-8" : archivo.tipoMime)
       .header("Content-Disposition", `${descargar ? "attachment" : "inline"}; filename*=UTF-8''${nombre}`)
-      // El contenido viene de terceros: se muestra aislado, sin ejecutar nada.
-      .header("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'")
-      .header("X-Content-Type-Options", "nosniff")
+      .header("X-Content-Type-Options", "nosniff");
+    // El contenido viene de terceros: XML e imágenes se muestran aislados. Los PDF no,
+    // porque el aislamiento impide que el visor de PDF del navegador los muestre.
+    if (archivo.tipoDetectado !== "PDF") {
+      reply.header("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
+    }
+    return reply
       .header("Cache-Control", "private, no-store")
       .send(contenido);
   });

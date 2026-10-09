@@ -1,9 +1,13 @@
 import { Navigate, Route, Routes } from "react-router";
 import { Marco } from "./componentes/Marco";
+import { Cargar } from "./paginas/Cargar";
+import { Comprobante } from "./paginas/Comprobante";
+import { Comprobantes } from "./paginas/Comprobantes";
 import { Configurar2fa } from "./paginas/Configurar2fa";
 import { Contribuyentes } from "./paginas/Contribuyentes";
 import { Inicio } from "./paginas/Inicio";
 import { Login } from "./paginas/Login";
+import { Proveedores } from "./paginas/Proveedores";
 import { useSesion } from "./sesion";
 
 export function App() {
@@ -23,6 +27,10 @@ export function App() {
     <Routes>
       <Route element={<Marco />}>
         <Route index element={<Inicio />} />
+        <Route path="comprobantes" element={<Comprobantes />} />
+        <Route path="comprobantes/:id" element={<Comprobante />} />
+        <Route path="cargar" element={<Cargar />} />
+        <Route path="proveedores" element={<Proveedores />} />
         <Route path="contribuyentes" element={<Contribuyentes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
