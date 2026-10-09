@@ -290,6 +290,15 @@ export function Correo() {
                       Aceptar y procesar
                     </button>
                   )}
+                  {m.estado === "ERROR" && (
+                    <button
+                      type="button"
+                      className="boton-primario"
+                      onClick={() => void ejecutar(() => api(`/correo/mensajes/${m.id}/reintentar`, { metodo: "POST" }), "Mensaje procesado de nuevo")}
+                    >
+                      Reintentar
+                    </button>
+                  )}
                   <button type="button" className="boton-secundario" onClick={() => setDescartando(m)}>
                     Descartar
                   </button>

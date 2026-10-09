@@ -43,6 +43,10 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID ?? "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
   },
+  /** Antivirus ClamAV opcional (clamd). Sin CLAMAV_HOST no se analiza. */
+  clamav: process.env.CLAMAV_HOST
+    ? { host: process.env.CLAMAV_HOST, puerto: Number(process.env.CLAMAV_PORT ?? 3310), esperaMs: Number(process.env.CLAMAV_ESPERA_MS ?? 30000) }
+    : null,
   correoIntervaloMinutos: Number(process.env.CORREO_INTERVALO_MINUTOS ?? 5),
   /** Carpeta con el frontend compilado; en producción la API lo sirve. */
   carpetaWeb: fileURLToPath(new URL("../../web/dist", import.meta.url)),

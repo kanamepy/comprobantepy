@@ -1,15 +1,29 @@
-# Base de datos PostgreSQL para desarrollo local.
+# Servicios para desarrollo local: PostgreSQL y, opcionalmente, el antivirus ClamAV.
+#   docker compose up -d                       -> solo PostgreSQL
+#   docker compose --profile antivirus up -d   -> PostgreSQL + ClamAV (CLAMAV_HOST=localhost en .env)
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: comprobantepy
-      POSTGRES_PASSWORD: comprobantepy
-      POSTGRES_DB: comprobantepy
+      # Usuario administrador de la base (solo para mantenimiento).
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # Usuario de la aplicación, sin privilegios de administrador (lo crea docker/postgres).
+      APP_DB_PASSWORD: comprobantepy
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+
+  clamav:
+    image: clamav/clamav:stable
+    profiles: ["antivirus"]
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav:/var/lib/clamav
 
 volumes:
   pgdata:
+  clamav:

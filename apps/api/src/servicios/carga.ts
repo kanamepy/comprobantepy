@@ -9,6 +9,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import type { Almacenamiento } from "../archivos/almacenamiento.js";
+import { exigirArchivoLimpio } from "../archivos/antivirus.js";
 import { sha256 } from "../archivos/almacenamiento.js";
 import { extraerTextoPdf } from "../archivos/pdf.js";
 import { detectarTipo, type TipoArchivo } from "../archivos/tipo.js";
@@ -39,6 +40,7 @@ export async function guardarArchivo(
   const huella = sha256(archivo.contenido);
   const [existente] = await db.select().from(archivos).where(eq(archivos.sha256, huella));
   if (existente) return { archivo: existente, nuevo: false, tipo };
+  await exigirArchivoLimpio(archivo.contenido, archivo.nombre);
   const ruta = await almacenamiento.guardar(archivo.contenido, huella);
   const [creado] = await db
     .insert(archivos)
@@ -138,7 +140,8 @@ export async function procesarArchivo(
       return { nombre: archivo.nombre, ...alta };
     });
   } catch (error) {
-    if (error instanceof ErrorHttp) return { nombre: archivo.nombre, resultado: "ERROR", error: error.message };
+    // Sin antivirus disponible no se acepta nada: el correo queda en ERROR y se reintenta.
+    if (error instanceof ErrorHttp && error.codigo !== "ANTIVIRUS_NO_DISPONIBLE") return { nombre: archivo.nombre, resultado: "ERROR", error: error.message };
     throw error;
   }
 }

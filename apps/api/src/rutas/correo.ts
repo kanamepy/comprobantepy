@@ -8,7 +8,7 @@ import { ErrorHttp, exigirSesion } from "../auth/sesiones.js";
 import { cifrar, descifrar } from "../cifrado.js";
 import { config } from "../config.js";
 import { canjearCodigo, googleConfigurado, revocarToken, urlAutorizacion } from "../correo/gmail.js";
-import { aceptarMensaje, descartarMensaje, registrarYProcesar } from "../correo/procesamiento.js";
+import { aceptarMensaje, descartarMensaje, registrarYProcesar, reintentarMensaje } from "../correo/procesamiento.js";
 import { sondearBuzon, type FabricaAdaptador, fabricaGmail } from "../correo/sondeo.js";
 import type { BaseDeDatos } from "../db/conexion.js";
 import { alertas, buzones, contribuyentes, mensajesCorreo } from "../db/esquema.js";
@@ -226,6 +226,13 @@ export async function rutasCorreo(app: FastifyInstance, { db, almacenamiento, fa
     exigirConfiguracion(request);
     const opciones = validar(z.object({ habilitarRemitente: z.boolean().default(false), titular: z.string().trim().max(200).optional() }), request.body ?? {});
     return comoSistema(() => aceptarMensaje(db, almacenamiento, Number(request.params.id), opciones, request.usuario!, request));
+  });
+
+  app.post<{ Params: { id: string } }>("/mensajes/:id/reintentar", async (request) => {
+    exigirConfiguracion(request);
+    const fila = await comoSistema(() => reintentarMensaje(db, almacenamiento, Number(request.params.id), request.usuario!, request));
+    const { rutaOriginal: _r, ...publico } = fila;
+    return publico;
   });
 
   app.post<{ Params: { id: string } }>("/mensajes/:id/descartar", async (request) => {

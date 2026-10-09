@@ -10,6 +10,8 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { construirApp } from "./app.js";
 import { almacenamientoLocal } from "./archivos/almacenamiento.js";
+import { fijarAntivirus } from "./archivos/antivirus.js";
+import { iniciarClamdSimulado } from "./archivos/clamd-simulado.test-utils.js";
 import { hashPassword } from "./auth/password.js";
 import { codigoTotp, generarSecretoTotp } from "./auth/totp.js";
 import { cifrar } from "./cifrado.js";
@@ -257,6 +259,44 @@ describe.skipIf(!url)("Fase 3 – correo (integración)", () => {
     const r = (await subir()).json();
     expect(r.resultados[0]).toMatchObject({ nuevo: true, mensaje: { estado: "PROCESADO", canal: "EML_MANUAL" } });
     expect((await subir()).json().resultados[0].nuevo).toBe(false);
+  });
+
+  it("con antivirus: un archivo infectado se rechaza y un antivirus caído deja el correo para reintentar", async () => {
+    const clamd = await iniciarClamdSimulado();
+    try {
+      const subirEml = async (eml: Buffer) => {
+        const cuerpo = multipart([{ nombre: "c.eml", contenido: eml, tipo: "message/rfc822" }]);
+        return (await app.inject({ method: "POST", url: "/api/correo/eml", headers: { ...cuerpo.headers, cookie }, payload: cuerpo.payload })).json();
+      };
+      fijarAntivirus({ host: "127.0.0.1", puerto: clamd.puerto, esperaMs: 5000 });
+      const infectado = correoMime({
+        de: "ventas@libreria.com.py", para: "madre@hotmail.com", asunto: "Factura sospechosa",
+        adjuntos: [{ nombre: "virus.pdf", tipo: "application/pdf", contenido: Buffer.concat([pdfConTexto(["Factura"]), Buffer.from("EICAR-PRUEBA")]) }],
+      });
+      const r1 = (await subirEml(infectado)).resultados[0].mensaje;
+      expect(r1.estado).toBe("OBSERVADO");
+      expect(r1.detalle[0].error).toContain("Eicar-Test-Signature");
+
+      // Antivirus configurado pero caído: no se acepta nada, el correo queda con error.
+      fijarAntivirus({ host: "127.0.0.1", puerto: 1, esperaMs: 2000 });
+      const sano = correoMime({
+        de: "ventas@libreria.com.py", para: "madre@hotmail.com", asunto: "Factura",
+        adjuntos: [{ nombre: "f7.xml", tipo: "text/xml", contenido: xml("0000127").contenido }],
+      });
+      const cuerpo = multipart([{ nombre: "c.eml", contenido: sano, tipo: "message/rfc822" }]);
+      const caido = await app.inject({ method: "POST", url: "/api/correo/eml", headers: { ...cuerpo.headers, cookie }, payload: cuerpo.payload });
+      expect(caido.statusCode).toBe(503);
+      const [enError] = (await pedir("GET", "/correo/mensajes")).json.filter((m: { asunto: string; estado: string }) => m.asunto === "Factura" && m.estado === "ERROR");
+      expect(enError).toBeTruthy();
+
+      fijarAntivirus({ host: "127.0.0.1", puerto: clamd.puerto, esperaMs: 5000 });
+      const reintento = await pedir("POST", `/correo/mensajes/${enError.id}/reintentar`);
+      expect(reintento.json.estado).toBe("PROCESADO");
+      expect((await pedir("POST", `/correo/mensajes/${enError.id}/reintentar`)).json.codigo).toBe("ESTADO_INVALIDO");
+    } finally {
+      fijarAntivirus(null);
+      clamd.servidor.close();
+    }
   });
 
   it("los correos y proveedores se filtran por contribuyente", async () => {

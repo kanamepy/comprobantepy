@@ -102,7 +102,13 @@ export async function registrarYProcesar(
     .select()
     .from(mensajesCorreo)
     .where(and(sql`coalesce(${mensajesCorreo.buzonId}, 0) = ${entrada.buzon?.id ?? 0}`, eq(mensajesCorreo.idProveedor, entrada.idProveedor)));
-  if (existente) return { mensaje: existente, nuevo: false };
+  if (existente) {
+    // Un mensaje que falló (por ejemplo, antivirus caído) se vuelve a procesar en la próxima lectura.
+    if (existente.estado === "ERROR" && existente.rutaOriginal) {
+      return { mensaje: await reprocesar(db, almacenamiento, existente, usuarioAccion), nuevo: false };
+    }
+    return { mensaje: existente, nuevo: false };
+  }
 
   const analisis = await analizarMensaje(entrada.crudo);
   const rutaOriginal = await almacenamiento.guardar(entrada.crudo, sha256(entrada.crudo));
@@ -171,6 +177,22 @@ async function procesarFila(
     .where(eq(mensajesCorreo.id, fila.id))
     .returning();
   return actualizada!;
+}
+
+async function reprocesar(db: BaseDeDatos, almacenamiento: Almacenamiento, fila: FilaMensaje, usuarioAccion?: UsuarioSesion) {
+  const [buzon] = fila.buzonId ? await db.select().from(buzones).where(eq(buzones.id, fila.buzonId)) : [];
+  const analisis = await analizarMensaje(await almacenamiento.leer(fila.rutaOriginal!));
+  return procesarFila(db, almacenamiento, fila, analisis, buzon ?? null, await usuarioDelBuzon(db, buzon ?? null, usuarioAccion));
+}
+
+/** Reintenta a mano un mensaje que quedó con error. */
+export async function reintentarMensaje(db: BaseDeDatos, almacenamiento: Almacenamiento, id: number, usuario: UsuarioSesion, request?: FastifyRequest) {
+  const [fila] = await db.select().from(mensajesCorreo).where(eq(mensajesCorreo.id, id));
+  if (!fila) throw new ErrorHttp(404, "NO_ENCONTRADO", "Mensaje inexistente");
+  if (fila.estado !== "ERROR") throw new ErrorHttp(409, "ESTADO_INVALIDO", "Solo se reintentan los mensajes con error");
+  if (!fila.rutaOriginal) throw new ErrorHttp(409, "SIN_ORIGINAL", "No se conservó el mensaje original");
+  await registrarAuditoria(db, { entidad: "mensaje_correo", entidadId: id, accion: "REINTENTAR" }, request);
+  return reprocesar(db, almacenamiento, fila, usuario);
 }
 
 /** Acepta un mensaje en revisión (remitente no habilitado) y lo procesa; opcionalmente habilita al remitente. */
