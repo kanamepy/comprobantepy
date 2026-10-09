@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Accesibilidad (sección 16.4): base de 16 px, foco visible y controles de al menos 44 × 44 px. */
+:root {
+  font-size: 16px;
+}
+html[data-texto="grande"] {
+  font-size: 18px;
+}
+html[data-texto="extra"] {
+  font-size: 20px;
+}
+
+@utility boton {
+  @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-4 font-medium transition-colors disabled:opacity-50;
+}
+
+@utility boton-primario {
+  @apply boton bg-blue-700 text-white hover:bg-blue-800;
+}
+
+@utility boton-secundario {
+  @apply boton border border-slate-300 bg-white text-slate-800 hover:bg-slate-100;
+}
+
+@utility boton-peligro {
+  @apply boton bg-red-700 text-white hover:bg-red-800;
+}
+
+@utility campo {
+  @apply block min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-base text-slate-900;
+}
+
+@utility etiqueta {
+  @apply mb-1 block font-medium text-slate-800;
+}
+
+@utility error-campo {
+  @apply mt-1 text-sm font-medium text-red-700;
+}
+
+@utility tarjeta {
+  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+}
+
+:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
