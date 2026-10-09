@@ -1,6 +1,7 @@
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import helmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import Fastify from "fastify";
 import { existsSync } from "node:fs";
@@ -42,6 +43,30 @@ export async function construirApp({
     trustProxy: true,
   });
 
+  // Cabeceras de seguridad (sección 21.4). Con HTTP en la red de la casa no se fuerza HTTPS.
+  const conHttps = config.urlPublica.startsWith("https://");
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        frameSrc: ["'self'", "blob:"],
+        objectSrc: ["'self'"],
+        workerSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "data:"],
+        frameAncestors: ["'self'"],
+        formAction: ["'self'"],
+        baseUri: ["'self'"],
+        upgradeInsecureRequests: conHttps ? [] : null,
+      },
+    },
+    hsts: conHttps ? { maxAge: 31536000 } : false,
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    referrerPolicy: { policy: "same-origin" },
+  });
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
   await app.register(multipart, {

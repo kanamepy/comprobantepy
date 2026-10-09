@@ -55,6 +55,14 @@ describe.skipIf(!url)("API (integración)", () => {
     await pool.end();
   });
 
+  it("envía cabeceras de seguridad", async () => {
+    const r = await app.inject({ method: "GET", url: "/api/salud" });
+    expect(r.headers["content-security-policy"]).toContain("default-src 'self'");
+    expect(r.headers["content-security-policy"]).not.toContain("upgrade-insecure-requests");
+    expect(r.headers["x-content-type-options"]).toBe("nosniff");
+    expect(r.headers["x-frame-options"]).toBe("SAMEORIGIN");
+  });
+
   it("rechaza credenciales inválidas", async () => {
     const respuesta = await login("admin@ejemplo.com", "incorrecta");
     expect(respuesta.statusCode).toBe(401);

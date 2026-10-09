@@ -46,6 +46,8 @@ export async function rutasArchivos(app: FastifyInstance, { db, almacenamiento }
     // porque el aislamiento impide que el visor de PDF del navegador los muestre.
     if (archivo.tipoDetectado !== "PDF") {
       reply.header("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
+    } else {
+      reply.removeHeader("Content-Security-Policy");
     }
     return reply
       .header("Cache-Control", "private, no-store")

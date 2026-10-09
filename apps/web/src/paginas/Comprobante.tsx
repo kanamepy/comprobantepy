@@ -8,7 +8,7 @@ import {
   type AccionFlujo,
   type EstadoFlujo,
 } from "@comprobantepy/shared";
-import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, apiFormulario, ErrorApi, type CampoOrigen, type DetalleComprobante } from "../api";
 import { Campo } from "../componentes/Campo";
@@ -183,7 +183,12 @@ export function Comprobante() {
     }
   }, [id]);
 
+  // Al pasar a otro comprobante (por ejemplo, otra versión) se limpia el mensaje anterior,
+  // salvo el que explica cómo se llegó (nueva versión creada).
+  const mantenerMensaje = useRef(false);
   useEffect(() => {
+    if (!mantenerMensaje.current) setMensaje(null);
+    mantenerMensaje.current = false;
     void cargar();
   }, [cargar]);
 
@@ -269,6 +274,7 @@ export function Comprobante() {
   async function nuevaVersion(motivo: string) {
     try {
       const r = await api<{ comprobanteId: number; version: number }>(`/comprobantes/${c.id}/nueva-version`, { cuerpo: { motivo } });
+      mantenerMensaje.current = true;
       setMensaje({ tipo: "ok", texto: `Se creó la versión ${r.version}: corregila y volvé a aprobarla para exportarla` });
       void navegar(`/comprobantes/${r.comprobanteId}`);
     } catch (err) {
@@ -282,7 +288,9 @@ export function Comprobante() {
   const puedeVerificarSifen =
     !historica && c.naturaleza === "ELECTRONICO" && perfilesDelContribuyente.some((p) => p === "FINANCIERO" || p === "AUXILIAR");
 
-  const archivoPrincipal = d.archivos.find((a) => a.tipoDetectado !== "XML") ?? d.archivos[0];
+  // Las evidencias (capturas de consultas) no son el documento: se listan, pero no se muestran.
+  const documentos = d.archivos.filter((a) => a.canal !== "EVIDENCIA");
+  const archivoPrincipal = documentos.find((a) => a.tipoDetectado !== "XML") ?? documentos[0] ?? d.archivos[0];
   const contribuyentesActivos = sesion?.contribuyentes.filter((x) => x.estado === "ACTIVO") ?? [];
   const sugeridaDe = c.camposOrigen._imputacionSugeridaDe as number | undefined;
 
