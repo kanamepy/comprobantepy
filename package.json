@@ -1,0 +1,23 @@
+{
+  "name": "comprobantepy",
+  "private": true,
+  "description": "Recepción, extracción, validación y exportación de comprobantes a Marangatu",
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @comprobantepy/api & npm run dev -w @comprobantepy/web",
+    "build": "npm run build -w @comprobantepy/shared && npm run build -w @comprobantepy/web && npm run build -w @comprobantepy/api",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate -w @comprobantepy/api",
+    "db:migrate": "npm run db:migrate -w @comprobantepy/api",
+    "crear-usuario": "npm run crear-usuario -w @comprobantepy/api --"
+  }
+}
