@@ -202,13 +202,21 @@ export async function rutasCorreo(app: FastifyInstance, { db, almacenamiento, fa
 
   app.get("/mensajes", async (request) => {
     exigirLectura(request);
-    const { estado } = validar(z.object({ estado: z.string().optional() }), request.query);
+    const { estado, contribuyenteId } = validar(z.object({ estado: z.string().optional(), contribuyenteId: z.coerce.number().int().positive().optional() }), request.query);
     const estados = estado ? estado.split(",") : undefined;
     const filas = await db
       .select({ mensaje: mensajesCorreo, buzon: buzones.direccion })
       .from(mensajesCorreo)
       .leftJoin(buzones, eq(buzones.id, mensajesCorreo.buzonId))
-      .where(estados ? inArray(mensajesCorreo.estado, estados as (typeof mensajesCorreo.$inferSelect.estado)[]) : undefined)
+      .where(
+        and(
+          estados ? inArray(mensajesCorreo.estado, estados as (typeof mensajesCorreo.$inferSelect.estado)[]) : undefined,
+          // Con un contribuyente elegido: los correos que trajeron comprobantes suyos.
+          contribuyenteId
+            ? sql`EXISTS (SELECT 1 FROM mensaje_archivos ma JOIN comprobante_archivos ca ON ca.archivo_id = ma.archivo_id JOIN comprobantes c ON c.id = ca.comprobante_id WHERE ma.mensaje_id = ${mensajesCorreo.id} AND c.contribuyente_id = ${contribuyenteId})`
+            : undefined,
+        ),
+      )
       .orderBy(desc(mensajesCorreo.id))
       .limit(300);
     return filas.map(({ mensaje: { rutaOriginal: _r, ...m }, buzon }) => ({ ...m, buzon }));

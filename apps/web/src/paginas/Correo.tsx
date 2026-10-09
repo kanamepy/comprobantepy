@@ -56,7 +56,8 @@ const PARA_REVISAR = ["REMITENTE_NO_HABILITADO", "SIN_ADJUNTOS", "ERROR", "OBSER
 
 /** Recepción por correo: buzón central, buzones de origen e incidencias (sección 7). */
 export function Correo() {
-  const { sesion } = useSesion();
+  const { sesion, contribuyenteActivo } = useSesion();
+  const nombreActivo = contribuyenteActivo === "TODOS" ? null : sesion?.contribuyentes.find((c) => c.id === contribuyenteActivo)?.nombre;
   const [parametros, setParametros] = useSearchParams();
   const [estado, setEstado] = useState<EstadoCorreo | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
@@ -70,13 +71,14 @@ export function Correo() {
 
   const cargar = useCallback(async () => {
     const estados = filtro === "REVISAR" ? PARA_REVISAR.join(",") : filtro === "PROCESADOS" ? "PROCESADO,DUPLICADO" : "";
-    const [e, m] = await Promise.all([
-      api<EstadoCorreo>("/correo/estado"),
-      api<Mensaje[]>(`/correo/mensajes${estados ? `?estado=${estados}` : ""}`),
-    ]);
+    const consulta = new URLSearchParams();
+    if (estados) consulta.set("estado", estados);
+    // Las incidencias (sin comprobante) no tienen contribuyente: se ven siempre en "Para revisar".
+    if (contribuyenteActivo !== "TODOS" && filtro !== "REVISAR") consulta.set("contribuyenteId", String(contribuyenteActivo));
+    const [e, m] = await Promise.all([api<EstadoCorreo>("/correo/estado"), api<Mensaje[]>(`/correo/mensajes?${consulta}`)]);
     setEstado(e);
     setMensajes(m);
-  }, [filtro]);
+  }, [filtro, contribuyenteActivo]);
 
   useEffect(() => {
     void cargar().catch((err: Error) => setAviso({ tipo: "error", texto: err.message }));
@@ -219,6 +221,9 @@ export function Correo() {
         <h2 id="titulo-mensajes" className="text-lg font-semibold">
           Mensajes recibidos
         </h2>
+        {nombreActivo && filtro !== "REVISAR" && (
+          <p className="text-sm text-slate-700">Mostrando los correos que trajeron comprobantes de {nombreActivo}.</p>
+        )}
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar mensajes">
           {(
             [

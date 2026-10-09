@@ -259,6 +259,14 @@ describe.skipIf(!url)("Fase 3 – correo (integración)", () => {
     expect((await subir()).json().resultados[0].nuevo).toBe(false);
   });
 
+  it("los correos y proveedores se filtran por contribuyente", async () => {
+    const deAna = (await pedir("GET", `/correo/mensajes?contribuyenteId=${ana}`)).json as { idProveedor: string }[];
+    expect(deAna.map((m) => m.idProveedor)).toEqual(expect.arrayContaining(["m1", "m2", "m3"]));
+    expect((await pedir("GET", `/correo/mensajes?contribuyenteId=${madre}`)).json).toEqual([]);
+    expect((await pedir("GET", `/proveedores?contribuyenteId=${ana}`)).json).toHaveLength(1);
+    expect((await pedir("GET", `/proveedores?contribuyenteId=${madre}`)).json).toEqual([]);
+  });
+
   it("valida los buzones: central único y filtro obligatorio en buzones personales", async () => {
     const otro = await pedir("POST", "/correo/buzones", { direccion: "otro@gmail.com", rol: "CENTRAL", mecanismo: "GMAIL_API", titular: "Otra persona", autorizacionFecha: "2026-01-01", autorizacionForma: "x" + "y" });
     expect(otro.json.codigo).toBe("CENTRAL_EXISTENTE");

@@ -5,6 +5,7 @@ import { Campo } from "../componentes/Campo";
 import { Dialogo, DialogoMotivo } from "../componentes/Dialogo";
 import { Insignia } from "../componentes/Insignia";
 import { fecha, fechaHora } from "../formato";
+import { useSesion } from "../sesion";
 
 const ESTADOS = {
   PENDIENTE_DE_CONFIRMAR: { texto: "A confirmar", tono: "ambar" },
@@ -20,14 +21,19 @@ export function Proveedores() {
   const [lista, setLista] = useState<(Proveedor & { comprobantes: number })[]>([]);
   const [error, setError] = useState<string | null>(null);
   const seleccionado = parametros.get("id") ? Number(parametros.get("id")) : null;
+  const { contribuyenteActivo, sesion } = useSesion();
+  const nombreActivo = contribuyenteActivo === "TODOS" ? null : sesion?.contribuyentes.find((c) => c.id === contribuyenteActivo)?.nombre;
 
   const cargar = useCallback(async () => {
     try {
-      setLista(await api(`/proveedores${filtro ? `?estado=${filtro}` : ""}`));
+      const consulta = new URLSearchParams();
+      if (filtro) consulta.set("estado", filtro);
+      if (contribuyenteActivo !== "TODOS") consulta.set("contribuyenteId", String(contribuyenteActivo));
+      setLista(await api(`/proveedores?${consulta}`));
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar");
     }
-  }, [filtro]);
+  }, [filtro, contribuyenteActivo]);
 
   useEffect(() => {
     void cargar();
@@ -36,6 +42,11 @@ export function Proveedores() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Proveedores</h1>
+      <p className="text-slate-700">
+        {nombreActivo
+          ? `Proveedores con comprobantes de ${nombreActivo}. El maestro de proveedores es compartido: confirmar uno sirve para todos los contribuyentes.`
+          : "Todos los proveedores. Elegí un contribuyente arriba para ver solo los suyos."}
+      </p>
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar proveedores">
         {[
           ["PENDIENTE_DE_CONFIRMAR", "A confirmar"],

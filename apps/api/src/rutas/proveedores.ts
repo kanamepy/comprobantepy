@@ -37,15 +37,24 @@ export async function rutasProveedores(app: FastifyInstance, { db }: { db: BaseD
     }
   }
 
+  /** Con contribuyenteId, solo los proveedores con comprobantes de ese contribuyente. */
   app.get("/", async (request) => {
-    const { estado } = request.query as { estado?: string };
+    const { estado, contribuyenteId } = request.query as { estado?: string; contribuyenteId?: string };
+    const contribuyente = contribuyenteId ? Number(contribuyenteId) : null;
+    const cantidad = contribuyente
+      ? sql<number>`(SELECT count(*)::int FROM comprobantes c WHERE c.proveedor_id = ${proveedores.id} AND c.estado_flujo <> 'ANULADO' AND c.contribuyente_id = ${contribuyente})`
+      : sql<number>`(SELECT count(*)::int FROM comprobantes c WHERE c.proveedor_id = ${proveedores.id} AND c.estado_flujo <> 'ANULADO')`;
     const filas = await db
-      .select({
-        proveedor: proveedores,
-        comprobantes: sql<number>`(SELECT count(*)::int FROM comprobantes c WHERE c.proveedor_id = ${proveedores.id} AND c.estado_flujo <> 'ANULADO')`,
-      })
+      .select({ proveedor: proveedores, comprobantes: cantidad })
       .from(proveedores)
-      .where(estado ? eq(proveedores.estado, estado as "CONFIRMADO") : undefined)
+      .where(
+        and(
+          estado ? eq(proveedores.estado, estado as "CONFIRMADO") : undefined,
+          contribuyente
+            ? sql`EXISTS (SELECT 1 FROM comprobantes c WHERE c.proveedor_id = ${proveedores.id} AND c.contribuyente_id = ${contribuyente})`
+            : undefined,
+        ),
+      )
       .orderBy(asc(proveedores.razonSocial));
     return filas.map((f) => ({ ...f.proveedor, comprobantes: f.comprobantes }));
   });
