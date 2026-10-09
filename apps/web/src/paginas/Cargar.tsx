@@ -35,7 +35,11 @@ export function Cargar() {
     contribuyenteActivo === "TODOS" ? null : sesion?.contribuyentes.find((c) => c.id === contribuyenteActivo)?.nombre;
 
   async function enviar(archivos: FileList | File[], canal: "CARGA" | "CAMARA") {
-    const lista = [...archivos];
+    const todos = [...archivos];
+    // Los correos guardados (.eml) se procesan como correo: se toman sus adjuntos.
+    const correos = todos.filter((a) => a.name.toLowerCase().endsWith(".eml"));
+    const lista = todos.filter((a) => !a.name.toLowerCase().endsWith(".eml"));
+    if (correos.length) await enviarCorreos(correos);
     if (lista.length === 0) return;
     setEnviando(true);
     setError(null);
@@ -53,6 +57,36 @@ export function Cargar() {
       setEnviando(false);
       if (entradaArchivos.current) entradaArchivos.current.value = "";
       if (entradaCamara.current) entradaCamara.current.value = "";
+    }
+  }
+
+  async function enviarCorreos(correos: File[]) {
+    setEnviando(true);
+    const datos = new FormData();
+    for (const c of correos) datos.append("correos", c, c.name);
+    try {
+      const r = await apiFormulario<{
+        resultados: { nombre: string; nuevo?: boolean; error?: string; mensaje?: { estado: string; detalle: { nombre: string; resultado: string; comprobanteId: number | null; avisos: string[] }[] } }[];
+      }>("/correo/eml", datos);
+      const filas = r.resultados.flatMap((c): Resultado[] =>
+        c.error
+          ? [{ nombre: c.nombre, resultado: "ERROR" as const, error: c.error }]
+          : !c.nuevo
+            ? [{ nombre: c.nombre, resultado: "YA_REGISTRADO" as const, avisos: ["Este correo ya se había cargado"] }]
+            : c.mensaje!.detalle.length === 0
+              ? [{ nombre: c.nombre, resultado: "ERROR" as const, error: "El correo no tiene adjuntos válidos" }]
+              : c.mensaje!.detalle.map((d) => ({
+                  nombre: `${c.nombre} › ${d.nombre}`,
+                  resultado: (["CREADO", "ASOCIADO", "YA_REGISTRADO"].includes(d.resultado) ? d.resultado : "ERROR") as Resultado["resultado"],
+                  comprobanteId: d.comprobanteId ?? undefined,
+                  avisos: d.avisos,
+                })),
+      );
+      setResultados((anteriores) => [...filas, ...anteriores]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los correos");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -120,7 +154,7 @@ export function Cargar() {
         ref={entradaArchivos}
         type="file"
         multiple
-        accept=".pdf,.xml,.jpg,.jpeg,.png,.tif,.tiff,.webp,.heic,application/pdf,text/xml,application/xml,image/*"
+        accept=".pdf,.xml,.eml,.jpg,.jpeg,.png,.tif,.tiff,.webp,.heic,application/pdf,text/xml,application/xml,message/rfc822,image/*"
         className="sr-only"
         aria-label="Elegir archivos de comprobantes"
         onChange={(e) => e.target.files && void enviar(e.target.files, "CARGA")}
@@ -139,7 +173,7 @@ export function Cargar() {
         }}
         className={`hidden rounded-xl border-2 border-dashed p-8 text-center md:block ${arrastrando ? "border-blue-600 bg-blue-50" : "border-slate-300"}`}
       >
-        También podés arrastrar aquí los archivos (PDF, XML o imágenes).
+        También podés arrastrar aquí los archivos (PDF, XML, imágenes o correos guardados .eml).
       </div>
 
       {enviando && (

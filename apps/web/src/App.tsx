@@ -5,6 +5,7 @@ import { Comprobante } from "./paginas/Comprobante";
 import { Comprobantes } from "./paginas/Comprobantes";
 import { Configurar2fa } from "./paginas/Configurar2fa";
 import { Contribuyentes } from "./paginas/Contribuyentes";
+import { Correo } from "./paginas/Correo";
 import { Exportar } from "./paginas/Exportar";
 import { Inicio } from "./paginas/Inicio";
 import { Login } from "./paginas/Login";
@@ -37,6 +38,7 @@ export function App() {
         <Route path="exportar" element={<Exportar />} />
         <Route path="reporte" element={<Reporte />} />
         <Route path="mas" element={<Mas />} />
+        <Route path="correo" element={<Correo />} />
         <Route path="contribuyentes" element={<Contribuyentes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

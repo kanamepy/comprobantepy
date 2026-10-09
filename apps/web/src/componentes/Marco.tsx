@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { api } from "../api";
 import { useSesion } from "../sesion";
 
 const enlaces = [
@@ -7,6 +9,7 @@ const enlaces = [
   { a: "/cargar", texto: "Cargar", icono: "📷" },
   { a: "/exportar", texto: "Exportar", icono: "⬇" },
   { a: "/reporte", texto: "Reporte", icono: "📊" },
+  { a: "/correo", texto: "Correo", icono: "✉" },
   { a: "/proveedores", texto: "Proveedores", icono: "🏪" },
   { a: "/contribuyentes", texto: "Contribuyentes", icono: "👥" },
 ];
@@ -17,6 +20,15 @@ const enlacesMovil = [...enlaces.slice(0, 4), { a: "/mas", texto: "Más", icono:
 /** Estructura común: contribuyente activo siempre visible y navegación inferior en el celular (secciones 2.4 y 16.1). */
 export function Marco() {
   const { sesion, contribuyenteActivo, elegirContribuyente, salir } = useSesion();
+  const ubicacion = useLocation();
+  const [alertas, setAlertas] = useState<{ id: number; mensaje: string }[]>([]);
+
+  // Alertas de integraciones (RF-041): por ejemplo, un buzón que hay que volver a conectar.
+  useEffect(() => {
+    if (!sesion?.contribuyentes.length) return;
+    api<{ alertas: { id: number; mensaje: string }[] }>("/correo/estado").then((e) => setAlertas(e.alertas), () => setAlertas([]));
+  }, [sesion, ubicacion.pathname]);
+
   if (!sesion) return null;
   const activos = sesion.contribuyentes.filter((c) => c.estado === "ACTIVO");
 
@@ -58,6 +70,17 @@ export function Marco() {
           ))}
         </nav>
       </header>
+
+      {alertas.length > 0 && ubicacion.pathname !== "/correo" && (
+        <div role="alert" className="border-b border-red-300 bg-red-50 print:hidden">
+          <p className="mx-auto max-w-6xl px-4 py-2 font-medium text-red-900">
+            ⚠ {alertas[0]!.mensaje}{" "}
+            <Link to="/correo" className="underline">
+              Ir a Correo
+            </Link>
+          </p>
+        </div>
+      )}
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />

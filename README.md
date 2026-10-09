@@ -24,8 +24,11 @@ La especificación funcional completa es la versión 4.6 (`Especificacion_Funcio
 | Exportación a Marangatu: conciliación previa, generación del TXT/CSV en ZIP, descarga con verificación de huella | ✅ |
 | Lotes: anulación antes de importar, envío, resultado de la DNIT, corrección y reenvío de rechazados | ✅ |
 | Reporte tributario consolidado por naturaleza, destino y obligación; descarga en Excel e impresión a PDF | ✅ |
-| Fase 3: recepción por correo (Gmail) | ⏳ próxima etapa |
-| Fases 4 a 6: OCR de fotos y PDF escaneados, tablero del IRP-RSP, robustez | ⏳ |
+| Recepción por correo: buzón central Gmail, reenvío desde los correos de cada titular, conexión directa limitada a una etiqueta | ✅ (probado con un Gmail simulado) |
+| Correos sin procesar dos veces, un registro aunque llegue por varios buzones, reenvíos de desconocidos a revisión, alertas si se pierde la conexión | ✅ |
+| Carga manual de correos guardados (.eml) | ✅ |
+| Fase 4: lectura automática de fotos y PDF escaneados (OCR y QR) | ⏳ próxima etapa |
+| Fases 5 y 6: seguimiento y proyección del IRP-RSP, robustez | ⏳ |
 
 ## Tecnologías
 
@@ -169,6 +172,31 @@ docker compose exec postgres createdb -U comprobantepy comprobantepy_test
 
 > Antes de usarlo en serio, hacé una importación de prueba en Marangatu con un lote chico para confirmar el formato (criterio 27 de la especificación).
 
+## Conectar Gmail (recepción por correo)
+
+La aplicación lee el buzón central (`vgomez.factura@gmail.com`) con la API de Gmail. La contraseña del correo nunca pasa por la aplicación: Google pide autorización y entrega un permiso que se guarda cifrado. Hay que hacerlo **una sola vez**:
+
+1. Entrá a <https://console.cloud.google.com> con la cuenta del buzón central y creá un proyecto (por ejemplo "Comprobantes").
+2. En **APIs y servicios → Biblioteca**, buscá **Gmail API** y presioná **Habilitar**.
+3. En **Google Auth Platform** (o "Pantalla de consentimiento de OAuth"): tipo de usuario **Externo**, nombre de la aplicación, tu correo de contacto. En **Público**, agregá `vgomez.factura@gmail.com` como usuario de prueba. En **Acceso a los datos**, agregá el permiso `https://www.googleapis.com/auth/gmail.modify` (leer y etiquetar).
+4. En **Clientes** (o "Credenciales → Crear ID de cliente de OAuth"): tipo **Aplicación web**. En **URI de redireccionamiento autorizados** poné la dirección que muestra la pantalla Correo de la aplicación, por ejemplo `http://localhost:5173/api/correo/oauth/callback`.
+5. Copiá el **ID de cliente** y el **secreto** en el archivo `.env` (`GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`) y reiniciá la aplicación.
+6. En la aplicación: **Correo → Agregar buzón → Buzón central** y después **Conectar con Google**.
+
+`npm run dev` ya incluye el proceso que revisa los buzones cada 5 minutos (`CORREO_INTERVALO_MINUTOS`). En producción se inicia aparte con `npm run worker`.
+
+> **Importante (decisión D-05):** mientras el proyecto de Google esté en modo **"Testing"**, Google vence el permiso cada 7 días y la lectura se corta: la aplicación lo avisa con una alerta y basta con presionar **Volver a conectar**. Para evitarlo hay que **publicar** la aplicación en Google Auth Platform. Como el permiso de Gmail es de los que Google llama "restringidos", conviene revisar en la documentación de Google si para un uso familiar alcanza con la aplicación publicada sin verificar o si pide verificación adicional.
+
+### Reenvío desde los correos de cada titular (recomendado)
+
+Así la aplicación nunca accede al resto de sus mensajes:
+
+1. En la aplicación: **Correo → Agregar buzón → Correo de un titular que reenvía al central**. Solo se aceptan reenvíos de las direcciones registradas; los de direcciones desconocidas quedan en revisión.
+2. **En Gmail del titular:** Configuración → Ver todos los ajustes → **Reenvío y correo POP/IMAP → Agregar una dirección de reenvío** → `vgomez.factura@gmail.com`. Google envía un código de confirmación al buzón central: abrilo en Gmail y confirmalo. Después creá un **filtro** (por ejemplo `has:attachment filename:xml OR filename:pdf`) con la acción **Reenviar a** `vgomez.factura@gmail.com`.
+3. **En Outlook o Hotmail:** Configuración → Correo → **Reglas** → nueva regla con la condición que corresponda y la acción **Reenviar a** `vgomez.factura@gmail.com`.
+
+También se puede reenviar a mano un correo puntual, o guardarlo como archivo `.eml` y cargarlo desde **Cargar**.
+
 ## Respaldo
 
 Para no perder información hay que respaldar **las dos cosas**: la base de datos PostgreSQL y la carpeta `datos/archivos` (o la indicada en `CARPETA_ARCHIVOS`). También guardá la `CLAVE_CIFRADO`: sin ella los archivos no se pueden abrir.
@@ -188,3 +216,5 @@ Estos puntos están marcados **[A CONFIRMAR]** en la especificación. En el cód
 
 - La separación por contribuyente se aplica en la capa de acceso a datos de la API. La segunda barrera en la base (Row Level Security con un usuario de base sin privilegios) se agrega en la fase de robustez.
 - La verificación de la firma digital del XML y el antivirus se agregan en fases posteriores.
+- La lectura de Gmail se probó con un Gmail simulado (no hay una cuenta real conectada en el entorno de desarrollo). La primera conexión real conviene hacerla con pocos correos.
+- Las respuestas automáticas a los remitentes (sección 7.5) están desactivadas, como pide la especificación; se pueden agregar en la fase de ampliaciones. La aplicación nunca envía correos.

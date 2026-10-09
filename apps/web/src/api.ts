@@ -181,6 +181,7 @@ export interface DetalleComprobante {
   proveedor: Proveedor | null;
   timbrado: (Timbrado & { estado: string | null }) | null;
   contribuyente: { id: number; nombre: string } | null;
+  correos: { id: number; remitenteOriginal: string | null; reenviadoPor: string | null; asunto: string | null; fecha: string | null }[];
   archivos: { id: number; nombreOriginal: string; tipoMime: string; tipoDetectado: string; tamano: number; sha256: string; canal: string }[];
   imputacion: {
     lineas: { id: number; obligacion: string; actividadId: number | null; actividad: string | null; porcentaje: string }[];

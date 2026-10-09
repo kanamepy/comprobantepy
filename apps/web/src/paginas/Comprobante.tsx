@@ -343,6 +343,18 @@ export function Comprobante() {
               ))}
             </ul>
           )}
+          {d.correos.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {d.correos.map((m) => (
+                <li key={m.id}>
+                  ✉ Recibido por correo de {m.remitenteOriginal ?? "—"}
+                  {m.reenviadoPor && `, reenviado por ${m.reenviadoPor}`}
+                  {m.fecha && ` el ${fechaHora(m.fecha)}`}
+                  {m.asunto && <span className="text-slate-600"> · “{m.asunto}”</span>}
+                </li>
+              ))}
+            </ul>
+          )}
           {c.advertenciasExtraccion.length > 0 && (
             <ul className="space-y-1 text-sm text-slate-700">
               {c.advertenciasExtraccion.map((a) => (
