@@ -11,8 +11,10 @@ import { Inicio } from "./paginas/Inicio";
 import { Irp } from "./paginas/Irp";
 import { Login } from "./paginas/Login";
 import { Mas } from "./paginas/Mas";
+import { MiCuenta } from "./paginas/MiCuenta";
 import { Proveedores } from "./paginas/Proveedores";
 import { Reporte } from "./paginas/Reporte";
+import { Usuarios } from "./paginas/Usuarios";
 import { useSesion } from "./sesion";
 
 export function App() {
@@ -41,6 +43,8 @@ export function App() {
         <Route path="mas" element={<Mas />} />
         <Route path="correo" element={<Correo />} />
         <Route path="irp" element={<Irp />} />
+        <Route path="usuarios" element={<Usuarios />} />
+        <Route path="mi-cuenta" element={<MiCuenta />} />
         <Route path="contribuyentes" element={<Contribuyentes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -20,6 +20,7 @@ import { rutasIrp } from "./rutas/irp.js";
 import { rutasLotes } from "./rutas/lotes.js";
 import { rutasProveedores } from "./rutas/proveedores.js";
 import { rutasReportes } from "./rutas/reportes.js";
+import { rutasUsuarios } from "./rutas/usuarios.js";
 
 export interface OpcionesApp {
   db: BaseDeDatos;
@@ -81,6 +82,7 @@ export async function construirApp({
   await app.register(rutasLotes, { prefix: "/api/lotes", db, almacenamiento });
   await app.register(rutasReportes, { prefix: "/api/reportes", db });
   await app.register(rutasIrp, { prefix: "/api/irp", db });
+  await app.register(rutasUsuarios, { prefix: "/api/usuarios", db });
   await app.register(rutasCorreo, { prefix: "/api/correo", db, almacenamiento, fabricaAdaptador: fabricaAdaptadorCorreo });
 
   if (servirWeb && existsSync(config.carpetaWeb)) {

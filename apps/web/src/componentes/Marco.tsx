@@ -31,6 +31,7 @@ export function Marco() {
   }, [sesion, ubicacion.pathname]);
 
   if (!sesion) return null;
+  const enlacesEscritorio = sesion.usuario.esAdministrador ? [...enlaces, { a: "/usuarios", texto: "Usuarios", icono: "🔐" }] : enlaces;
   const activos = sesion.contribuyentes.filter((c) => c.estado === "ACTIVO");
 
   return (
@@ -54,12 +55,15 @@ export function Marco() {
               ))}
             </select>
           </label>
+          <Link to="/mi-cuenta" className="boton text-slate-700 hover:bg-slate-100">
+            Mi cuenta
+          </Link>
           <button type="button" className="boton-secundario" onClick={() => void salir()}>
             Salir
           </button>
         </div>
         <nav className="mx-auto hidden max-w-6xl gap-1 px-4 pb-2 md:flex" aria-label="Principal">
-          {enlaces.map((e) => (
+          {enlacesEscritorio.map((e) => (
             <NavLink
               key={e.a}
               to={e.a}
