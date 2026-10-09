@@ -13,6 +13,7 @@ import { sondearBuzon, type FabricaAdaptador, fabricaGmail } from "../correo/son
 import type { BaseDeDatos } from "../db/conexion.js";
 import { alertas, buzones, contribuyentes, mensajesCorreo } from "../db/esquema.js";
 import { puedeVerPendientes } from "../servicios/comprobantes.js";
+import { comoSistema } from "../db/contexto.js";
 import { validar } from "../validacion.js";
 
 const esquemaBuzon = z.object({
@@ -195,7 +196,8 @@ export async function rutasCorreo(app: FastifyInstance, { db, almacenamiento, fa
     exigirConfiguracion(request);
     const [buzon] = await db.select().from(buzones).where(eq(buzones.id, Number(request.params.id)));
     if (!buzon || !buzon.credencialCifrada) throw new ErrorHttp(409, "SIN_CONEXION", "El buzón no está conectado");
-    return sondearBuzon(db, almacenamiento, buzon, fabricaAdaptador);
+    // El correo se procesa como proceso del sistema, igual que en el trabajador.
+    return comoSistema(() => sondearBuzon(db, almacenamiento, buzon, fabricaAdaptador));
   });
 
   app.get("/mensajes", async (request) => {
@@ -215,7 +217,7 @@ export async function rutasCorreo(app: FastifyInstance, { db, almacenamiento, fa
   app.post<{ Params: { id: string } }>("/mensajes/:id/aceptar", async (request) => {
     exigirConfiguracion(request);
     const opciones = validar(z.object({ habilitarRemitente: z.boolean().default(false), titular: z.string().trim().max(200).optional() }), request.body ?? {});
-    return aceptarMensaje(db, almacenamiento, Number(request.params.id), opciones, request.usuario!, request);
+    return comoSistema(() => aceptarMensaje(db, almacenamiento, Number(request.params.id), opciones, request.usuario!, request));
   });
 
   app.post<{ Params: { id: string } }>("/mensajes/:id/descartar", async (request) => {
@@ -235,11 +237,13 @@ export async function rutasCorreo(app: FastifyInstance, { db, almacenamiento, fa
         resultados.push({ nombre: parte.filename, error: "No parece un correo guardado (.eml)" });
         continue;
       }
-      const { mensaje, nuevo } = await registrarYProcesar(
-        db,
-        almacenamiento,
-        { crudo: contenido, buzon: null, idProveedor: `eml:${sha256(contenido)}`, canal: "EML_MANUAL" },
-        request.usuario!,
+      const { mensaje, nuevo } = await comoSistema(() =>
+        registrarYProcesar(
+          db,
+          almacenamiento,
+          { crudo: contenido, buzon: null, idProveedor: `eml:${sha256(contenido)}`, canal: "EML_MANUAL" },
+          request.usuario!,
+        ),
       );
       const { rutaOriginal: _r, ...publico } = mensaje;
       resultados.push({ nombre: parte.filename, nuevo, mensaje: publico });

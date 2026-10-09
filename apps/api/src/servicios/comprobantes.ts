@@ -34,12 +34,13 @@ import {
   type ResultadoExtraccion,
   UMBRAL_CONFIANZA,
 } from "@comprobantepy/shared";
-import { and, desc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import { registrarAuditoria } from "../auditoria.js";
 import { ErrorHttp, type UsuarioSesion } from "../auth/sesiones.js";
 import { cifrar } from "../cifrado.js";
 import type { Ejecutor, Transaccion } from "../db/conexion.js";
+import { conPrivilegios } from "../db/contexto.js";
 import {
   actividades,
   comprobanteArchivos,
@@ -138,21 +139,23 @@ async function imputacionDe(db: Ejecutor, comprobanteId: number) {
 
 /** Otros comprobantes del mismo proveedor, fecha e importe con distinto número (sección 12). */
 export async function buscarPosiblesDuplicados(db: Ejecutor, fila: FilaComprobante) {
-  if (!fila.proveedorId || !fila.fechaEmision || !fila.total) return [];
+  const { proveedorId, fechaEmision, total } = fila;
+  if (!proveedorId || !fechaEmision || !total) return [];
   const descartados = (fila.duplicadosDescartados as number[]) ?? [];
-  const candidatos = await db
+  // Los duplicados se buscan entre todos los contribuyentes (sección 12).
+  const candidatos = await conPrivilegios(db, () => db
     .select({ id: comprobantes.id, numero: comprobantes.numero, estadoFlujo: comprobantes.estadoFlujo, contribuyenteId: comprobantes.contribuyenteId })
     .from(comprobantes)
     .where(
       and(
         ne(comprobantes.id, fila.id),
-        eq(comprobantes.proveedorId, fila.proveedorId),
-        eq(comprobantes.fechaEmision, fila.fechaEmision),
-        eq(comprobantes.total, fila.total),
+        eq(comprobantes.proveedorId, proveedorId),
+        eq(comprobantes.fechaEmision, fechaEmision),
+        eq(comprobantes.total, total),
         // Un duplicado ya anulado deja de marcar al que quedó vigente.
         ne(comprobantes.estadoFlujo, "ANULADO"),
       ),
-    );
+    ));
   return candidatos.filter((c) => !descartados.includes(c.id));
 }
 
@@ -162,7 +165,7 @@ async function buscarDuplicadoExacto(
   datos: { cdc: string | null; proveedorId: number | null; tipoComprobante: number | null; timbrado: number | null; numero: string | null },
   excluirId?: number,
 ) {
-  const condiciones = [];
+  const condiciones: (SQL | undefined)[] = [];
   if (datos.cdc) condiciones.push(eq(comprobantes.cdc, datos.cdc));
   if (datos.proveedorId && datos.tipoComprobante && datos.timbrado !== null && datos.numero) {
     condiciones.push(
@@ -175,12 +178,13 @@ async function buscarDuplicadoExacto(
     );
   }
   if (condiciones.length === 0) return null;
-  const [fila] = await db
+  // Un comprobante pertenece a un solo contribuyente: el control ve a todos (sección 12).
+  const [fila] = await conPrivilegios(db, () => db
     .select({ id: comprobantes.id, contribuyenteId: comprobantes.contribuyenteId, nombre: contribuyentes.nombre, estadoFlujo: comprobantes.estadoFlujo })
     .from(comprobantes)
     .leftJoin(contribuyentes, eq(contribuyentes.id, comprobantes.contribuyenteId))
     .where(and(or(...condiciones), excluirId ? ne(comprobantes.id, excluirId) : undefined))
-    .limit(1);
+    .limit(1));
   return fila ?? null;
 }
 
@@ -719,7 +723,10 @@ export async function reevaluarConRelacionados(tx: Ejecutor, id: number, previos
   const { fila } = await reevaluar(tx, id);
   const actuales = await buscarPosiblesDuplicados(tx, fila);
   const ids = new Set([...previos, ...actuales].map((c) => c.id));
-  for (const otro of ids) await reevaluar(tx, otro);
+  // El posible duplicado puede ser de otro contribuyente: se recalcula igual.
+  await conPrivilegios(tx, async () => {
+    for (const otro of ids) await reevaluar(tx, otro);
+  });
   return fila;
 }
 
@@ -873,12 +880,14 @@ export async function ejecutarAccion(
     const posibles = relacionadosPrevios;
     cambios.duplicadosDescartados = [...((fila.duplicadosDescartados as number[]) ?? []), ...posibles.map((p) => p.id)];
     // El otro comprobante también deja de considerarse duplicado de este.
-    for (const otro of posibles) {
-      await tx
-        .update(comprobantes)
-        .set({ duplicadosDescartados: sql`${comprobantes.duplicadosDescartados} || ${JSON.stringify([id])}::jsonb` })
-        .where(eq(comprobantes.id, otro.id));
-    }
+    await conPrivilegios(tx, async () => {
+      for (const otro of posibles) {
+        await tx
+          .update(comprobantes)
+          .set({ duplicadosDescartados: sql`${comprobantes.duplicadosDescartados} || ${JSON.stringify([id])}::jsonb` })
+          .where(eq(comprobantes.id, otro.id));
+      }
+    });
   }
   await tx.update(comprobantes).set(cambios).where(eq(comprobantes.id, id));
   await registrarAuditoria(
@@ -902,6 +911,11 @@ export async function ejecutarAccion(
 
 /** Recalcula todos los comprobantes no anulados que dependen de un proveedor o timbrado. */
 export async function reevaluarPorProveedor(tx: Transaccion, proveedorId: number) {
+  // El proveedor es compartido: sus comprobantes pueden ser de cualquier contribuyente.
+  return conPrivilegios(tx, () => reevaluarPorProveedorSinRestriccion(tx, proveedorId));
+}
+
+async function reevaluarPorProveedorSinRestriccion(tx: Transaccion, proveedorId: number) {
   const filas = await tx
     .select({ id: comprobantes.id })
     .from(comprobantes)

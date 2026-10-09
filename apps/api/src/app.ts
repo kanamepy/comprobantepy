@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { almacenamientoLocal, type Almacenamiento } from "./archivos/almacenamiento.js";
 import { ErrorHttp, hookSesion } from "./auth/sesiones.js";
 import { config } from "./config.js";
+import { almacenContexto } from "./db/contexto.js";
 import type { BaseDeDatos } from "./db/conexion.js";
 import { rutasArchivos } from "./rutas/archivos.js";
 import { rutasAuth } from "./rutas/auth.js";
@@ -48,7 +49,15 @@ export async function construirApp({
   });
   app.decorateRequest("usuario", null);
   app.decorateRequest("sesionId", null);
+  // Cada petición corre en su propio contexto de datos: la base filtra por contribuyente (RLS).
+  app.addHook("onRequest", (_request, _reply, listo) => {
+    almacenContexto.run({ sistema: false, contribuyentes: [] }, listo);
+  });
   app.addHook("onRequest", hookSesion(db));
+  app.addHook("onRequest", async (request) => {
+    const contexto = almacenContexto.getStore();
+    if (contexto && request.usuario) contexto.contribuyentes = [...new Set(request.usuario.perfiles.map((p) => p.contribuyenteId))];
+  });
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ErrorHttp) {

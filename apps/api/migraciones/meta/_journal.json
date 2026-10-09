@@ -64,6 +64,13 @@
       "when": 1791545569063,
       "tag": "0008_parametros_irp",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791546749138,
+      "tag": "0009_aislamiento_rls",
+      "breakpoints": true
     }
   ]
 }
