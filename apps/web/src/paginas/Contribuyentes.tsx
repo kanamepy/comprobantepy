@@ -106,10 +106,26 @@ export function Contribuyentes() {
                 {c.dv !== null && `-${c.dv}`}
                 {c.relacion && ` · ${c.relacion}`}
               </p>
-              <p className="text-sm text-slate-700">
-                Registro de comprobantes:{" "}
-                {c.obligacionRegistro === "955" ? "mensual (955)" : c.obligacionRegistro === "956" ? "anual (956)" : "a confirmar"}
-              </p>
+              <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                Registro de comprobantes:
+                <select
+                  className="campo w-auto"
+                  value={c.obligacionRegistro ?? ""}
+                  disabled={c.estado !== "ACTIVO"}
+                  onChange={async (e) => {
+                    try {
+                      await api(`/contribuyentes/${c.id}`, { metodo: "PATCH", cuerpo: { obligacionRegistro: e.target.value || null } });
+                      await cargar();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "No se pudo guardar");
+                    }
+                  }}
+                >
+                  <option value="">A confirmar</option>
+                  <option value="955">Mensual (955)</option>
+                  <option value="956">Anual (956)</option>
+                </select>
+              </label>
               <p className="text-sm text-slate-700">
                 Autorización: {c.autorizacionFecha} · {c.autorizacionForma}
               </p>

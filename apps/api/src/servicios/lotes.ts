@@ -103,6 +103,7 @@ export async function prepararLote(db: Ejecutor, contribuyenteId: number, period
 
   const elegibles: Candidato[] = [];
   const noElegibles: Candidato[] = [];
+  const yaExportados: Candidato[] = [];
   const registros: RegistroExportable[] = [];
   for (const { comprobante: c, proveedor } of filas) {
     const elegibilidad = calcularElegibilidad({
@@ -125,6 +126,8 @@ export async function prepararLote(db: Ejecutor, contribuyenteId: number, period
       elegibles.push(candidato);
       const registro = await registroDe(db, c);
       if (registro) registros.push(registro);
+    } else if (["INCLUIDO_EN_LOTE", "ENVIADO", "ACEPTADO_DNIT"].includes(elegibilidad.estado)) {
+      yaExportados.push(candidato);
     } else {
       noElegibles.push(candidato);
     }
@@ -134,6 +137,7 @@ export async function prepararLote(db: Ejecutor, contribuyenteId: number, period
     periodo: { ...periodo, desde, hasta },
     elegibles,
     noElegibles,
+    yaExportados,
     conciliacion: conciliar(registros),
   };
 }

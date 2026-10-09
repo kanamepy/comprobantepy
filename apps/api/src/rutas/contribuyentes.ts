@@ -77,6 +77,37 @@ export async function rutasContribuyentes(app: FastifyInstance, { db }: { db: Ba
     return creado;
   });
 
+  /** Datos editables después del alta: relación, correo y obligación de registro (955/956). */
+  app.patch<{ Params: { id: string } }>("/:id", async (request) => {
+    const id = Number(request.params.id);
+    exigirFinancieroDe(request, id);
+    const cambios = validar(
+      z
+        .object({
+          relacion: z.string().trim().max(100).nullable(),
+          correoContacto: z.string().trim().email("Correo inválido").nullable().or(z.literal("")),
+          obligacionRegistro: z.enum(["955", "956"]).nullable(),
+        })
+        .partial(),
+      request.body,
+    );
+    return db.transaction(async (tx) => {
+      const [anterior] = await tx.select().from(contribuyentes).where(eq(contribuyentes.id, id));
+      if (!anterior) throw new ErrorHttp(404, "NO_ENCONTRADO", "Contribuyente inexistente");
+      const [actualizado] = await tx
+        .update(contribuyentes)
+        .set({ ...cambios, correoContacto: cambios.correoContacto === "" ? null : cambios.correoContacto, actualizadoEn: new Date() })
+        .where(eq(contribuyentes.id, id))
+        .returning();
+      await registrarAuditoria(
+        tx,
+        { entidad: "contribuyente", entidadId: id, contribuyenteId: id, accion: "EDITAR", valorAnterior: anterior, valorNuevo: actualizado },
+        request,
+      );
+      return actualizado;
+    });
+  });
+
   /** Baja lógica: conserva los registros pero impide nuevas cargas (sección 2.6). */
   app.post<{ Params: { id: string } }>("/:id/baja", async (request) => {
     const id = Number(request.params.id);

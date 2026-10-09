@@ -21,8 +21,11 @@ La especificación funcional completa es la versión 4.6 (`Especificacion_Funcio
 | Imputación múltiple a obligaciones y actividades, con sugerencia según el proveedor | ✅ |
 | Estados de flujo (confirmar, aprobar, observar, rechazar, anular con motivo) e historial | ✅ |
 | Archivos originales guardados cifrados; log de auditoría inmutable | ✅ |
-| Fase 2: lotes de exportación a Marangatu desde la interfaz (las reglas ya están listas) | ⏳ próxima etapa |
-| Fases 3 a 6: correo, OCR de fotos y PDF escaneados, tablero del IRP-RSP | ⏳ |
+| Exportación a Marangatu: conciliación previa, generación del TXT/CSV en ZIP, descarga con verificación de huella | ✅ |
+| Lotes: anulación antes de importar, envío, resultado de la DNIT, corrección y reenvío de rechazados | ✅ |
+| Reporte tributario consolidado por naturaleza, destino y obligación; descarga en Excel e impresión a PDF | ✅ |
+| Fase 3: recepción por correo (Gmail) | ⏳ próxima etapa |
+| Fases 4 a 6: OCR de fotos y PDF escaneados, tablero del IRP-RSP, robustez | ⏳ |
 
 ## Tecnologías
 
@@ -156,6 +159,15 @@ docker compose exec postgres createdb -U comprobantepy comprobantepy_test
 ```
 
 ---
+
+## Cómo exportar a Marangatu
+
+1. Cargá y aprobá los comprobantes físicos del período (los electrónicos y virtuales no se exportan).
+2. En **Exportar**, elegí el contribuyente y el mes (o el año si registra en forma anual), revisá la conciliación previa y generá el archivo.
+3. Descargá el ZIP e importalo en Marangatu con las credenciales del titular.
+4. Marcá el lote como **importado** y, cuando la DNIT informe el resultado en el Buzón Marandu, registralo: los comprobantes con error vuelven a "Observado" para corregirlos y reenviarlos en un lote nuevo.
+
+> Antes de usarlo en serio, hacé una importación de prueba en Marangatu con un lote chico para confirmar el formato (criterio 27 de la especificación).
 
 ## Respaldo
 

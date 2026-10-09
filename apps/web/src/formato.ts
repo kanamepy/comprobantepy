@@ -40,7 +40,17 @@ export const ETIQUETA_ELEGIBILIDAD: Record<string, string> = {
   NO_EXPORTABLE: "No exportable",
   NO_ELEGIBLE: "Todavía no exportable",
   ELEGIBLE: "Listo para exportar",
+  INCLUIDO_EN_LOTE: "En un lote generado",
+  ENVIADO: "Enviado a Marangatu",
+  ACEPTADO_DNIT: "Aceptado por la DNIT",
+  RECHAZADO_DNIT: "Rechazado por la DNIT",
 };
+
+export const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+export function periodoTexto(anio: number, mes: number | null) {
+  return mes ? `${MESES[mes - 1]} ${anio}` : `año ${anio}`;
+}
 
 export const ETIQUETA_TECNICO: Record<string, string> = {
   RECIBIDO: "Recibido",

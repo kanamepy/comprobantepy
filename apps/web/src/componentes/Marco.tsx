@@ -5,9 +5,14 @@ const enlaces = [
   { a: "/", texto: "Inicio", icono: "🏠" },
   { a: "/comprobantes", texto: "Bandeja", icono: "🗂" },
   { a: "/cargar", texto: "Cargar", icono: "📷" },
+  { a: "/exportar", texto: "Exportar", icono: "⬇" },
+  { a: "/reporte", texto: "Reporte", icono: "📊" },
   { a: "/proveedores", texto: "Proveedores", icono: "🏪" },
   { a: "/contribuyentes", texto: "Contribuyentes", icono: "👥" },
 ];
+
+/** En el celular entran cinco accesos; el resto va a "Más". */
+const enlacesMovil = [...enlaces.slice(0, 4), { a: "/mas", texto: "Más", icono: "☰" }];
 
 /** Estructura común: contribuyente activo siempre visible y navegación inferior en el celular (secciones 2.4 y 16.1). */
 export function Marco() {
@@ -17,7 +22,7 @@ export function Marco() {
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-20 text-slate-900 md:pb-0">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2">
           <span className="mr-auto text-lg font-bold text-blue-800">Comprobantes</span>
           <label className="order-last flex basis-full items-center gap-2 md:order-none md:basis-auto">
@@ -59,10 +64,10 @@ export function Marco() {
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-200 bg-white md:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-200 bg-white md:hidden print:hidden"
         aria-label="Principal"
       >
-        {enlaces.map((e) => (
+        {enlacesMovil.map((e) => (
           <NavLink
             key={e.a}
             to={e.a}

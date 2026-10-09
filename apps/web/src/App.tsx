@@ -5,9 +5,12 @@ import { Comprobante } from "./paginas/Comprobante";
 import { Comprobantes } from "./paginas/Comprobantes";
 import { Configurar2fa } from "./paginas/Configurar2fa";
 import { Contribuyentes } from "./paginas/Contribuyentes";
+import { Exportar } from "./paginas/Exportar";
 import { Inicio } from "./paginas/Inicio";
 import { Login } from "./paginas/Login";
+import { Mas } from "./paginas/Mas";
 import { Proveedores } from "./paginas/Proveedores";
+import { Reporte } from "./paginas/Reporte";
 import { useSesion } from "./sesion";
 
 export function App() {
@@ -31,6 +34,9 @@ export function App() {
         <Route path="comprobantes/:id" element={<Comprobante />} />
         <Route path="cargar" element={<Cargar />} />
         <Route path="proveedores" element={<Proveedores />} />
+        <Route path="exportar" element={<Exportar />} />
+        <Route path="reporte" element={<Reporte />} />
+        <Route path="mas" element={<Mas />} />
         <Route path="contribuyentes" element={<Contribuyentes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
