@@ -13,6 +13,7 @@ import {
   estadoAutomatico,
   ESTADOS_AUTOMATICOS,
   ESTADOS_EDITABLES,
+  ESTADOS_LOTE_BLOQUEANTES,
   evaluarComprobante,
   normalizarCdc,
   normalizarNumeroComprobante,
@@ -830,6 +831,15 @@ export async function ejecutarAccion(
   if (!desdeOk) {
     const categoria = estado === "OBSERVADO" ? "OBSERVADO" : estado === "POSIBLE_DUPLICADO" ? "POSIBLE_DUPLICADO" : "ESTADO";
     return { ok: false, id, motivo: `No se puede ${accion.toLowerCase().replaceAll("_", " ")} un comprobante en estado ${estado.toLowerCase().replaceAll("_", " ")}`, categoria };
+  }
+  if (["OBSERVAR", "ANULAR", "RECHAZAR"].includes(accion) && fila.estadoMarangatu && ESTADOS_LOTE_BLOQUEANTES.includes(fila.estadoMarangatu)) {
+    const detalle =
+      fila.estadoMarangatu === "INCLUIDO_EN_LOTE"
+        ? "está incluido en un lote generado: anulá primero el lote"
+        : fila.estadoMarangatu === "ENVIADO"
+          ? "ya fue enviado a Marangatu: registrá el resultado de la DNIT"
+          : "fue aceptado por la DNIT y no se modifica";
+    return { ok: false, id, motivo: `El comprobante ${detalle}`, categoria: "ESTADO" };
   }
   if (regla.requiereMotivo && !motivo?.trim()) {
     return { ok: false, id, motivo: "Esta acción requiere un motivo", categoria: "ESTADO" };

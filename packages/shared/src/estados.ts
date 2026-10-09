@@ -114,28 +114,49 @@ export function accionesDisponibles(estado: EstadoFlujo, perfiles: readonly Perf
   });
 }
 
-/** Estado de elegibilidad para Marangatu (sección 15.3). Los estados de lote se agregan en la Fase 2. */
+/** Estado de elegibilidad para Marangatu (sección 15.3). */
 export type EstadoElegibilidad =
   | "NO_APLICA_ELECTRONICO"
   | "NO_APLICA_VIRTUAL"
   | "NO_EXPORTABLE"
   | "NO_ELEGIBLE"
-  | "ELEGIBLE";
+  | "ELEGIBLE"
+  | "INCLUIDO_EN_LOTE"
+  | "ENVIADO"
+  | "ACEPTADO_DNIT"
+  | "RECHAZADO_DNIT";
+
+/** Estados de un comprobante dentro de un lote, guardados en el comprobante. */
+export type EstadoLoteComprobante = "INCLUIDO_EN_LOTE" | "ENVIADO" | "ACEPTADO_DNIT" | "RECHAZADO_DNIT";
+
+/** Mientras está en uno de estos estados el comprobante no se modifica ni se observa (sección 15.3). */
+export const ESTADOS_LOTE_BLOQUEANTES: readonly string[] = ["INCLUIDO_EN_LOTE", "ENVIADO", "ACEPTADO_DNIT"];
 
 export function calcularElegibilidad(datos: {
   naturaleza: NaturalezaFiscal;
   tipoComprobante: number | null;
   estadoFlujo: EstadoFlujo;
   tieneBloqueantes: boolean;
+  estadoMarangatu?: string | null;
 }): { estado: EstadoElegibilidad; motivo: string } {
   if (datos.naturaleza === "ELECTRONICO") return { estado: "NO_APLICA_ELECTRONICO", motivo: "Marangatu lo obtiene de SIFEN" };
   if (datos.naturaleza === "VIRTUAL") return { estado: "NO_APLICA_VIRTUAL", motivo: "Marangatu lo obtiene del sistema de comprobantes virtuales" };
+  if (datos.estadoMarangatu === "INCLUIDO_EN_LOTE") return { estado: "INCLUIDO_EN_LOTE", motivo: "Incluido en un lote generado" };
+  if (datos.estadoMarangatu === "ENVIADO") return { estado: "ENVIADO", motivo: "El archivo fue importado en Marangatu" };
+  if (datos.estadoMarangatu === "ACEPTADO_DNIT") return { estado: "ACEPTADO_DNIT", motivo: "La DNIT no informó errores" };
   if (datos.naturaleza === "NO_DETERMINADA") return { estado: "NO_ELEGIBLE", motivo: "Naturaleza fiscal no determinada" };
   if (datos.tipoComprobante === null || destinoExportacion(datos.tipoComprobante, datos.naturaleza) === "NO_EXPORTABLE") {
     return { estado: "NO_EXPORTABLE", motivo: "El tipo de comprobante no tiene destino Compras ni Egresos" };
   }
   if (datos.estadoFlujo === "ANULADO") return { estado: "NO_ELEGIBLE", motivo: "Anulado" };
+  const listo = !datos.tieneBloqueantes && datos.estadoFlujo === "APROBADO";
+  if (datos.estadoMarangatu === "RECHAZADO_DNIT" && !listo) {
+    return { estado: "RECHAZADO_DNIT", motivo: "La DNIT informó un error: corregir, aprobar y reenviar" };
+  }
   if (datos.tieneBloqueantes) return { estado: "NO_ELEGIBLE", motivo: "Tiene errores bloqueantes" };
   if (datos.estadoFlujo !== "APROBADO") return { estado: "NO_ELEGIBLE", motivo: "Falta la aprobación del Financiero" };
-  return { estado: "ELEGIBLE", motivo: "Listo para incluir en un lote" };
+  return {
+    estado: "ELEGIBLE",
+    motivo: datos.estadoMarangatu === "RECHAZADO_DNIT" ? "Corregido: listo para reenviar" : "Listo para incluir en un lote",
+  };
 }

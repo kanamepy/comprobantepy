@@ -122,5 +122,10 @@ describe("estados", () => {
     expect(calcularElegibilidad({ ...base, naturaleza: "VIRTUAL" }).estado).toBe("NO_APLICA_VIRTUAL");
     expect(calcularElegibilidad({ ...base, estadoFlujo: "CONFIRMADO" }).estado).toBe("NO_ELEGIBLE");
     expect(calcularElegibilidad({ ...base, tipoComprobante: 999 }).estado).toBe("NO_EXPORTABLE");
+    expect(calcularElegibilidad({ ...base, estadoMarangatu: "INCLUIDO_EN_LOTE" }).estado).toBe("INCLUIDO_EN_LOTE");
+    expect(calcularElegibilidad({ ...base, estadoMarangatu: "ACEPTADO_DNIT" }).estado).toBe("ACEPTADO_DNIT");
+    // Rechazado por la DNIT: vuelve a ser elegible una vez corregido y aprobado.
+    expect(calcularElegibilidad({ ...base, estadoFlujo: "OBSERVADO", estadoMarangatu: "RECHAZADO_DNIT" }).estado).toBe("RECHAZADO_DNIT");
+    expect(calcularElegibilidad({ ...base, estadoMarangatu: "RECHAZADO_DNIT" }).estado).toBe("ELEGIBLE");
   });
 });

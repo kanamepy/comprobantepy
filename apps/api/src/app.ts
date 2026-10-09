@@ -13,7 +13,9 @@ import { rutasAuth } from "./rutas/auth.js";
 import { rutasCatalogos } from "./rutas/catalogos.js";
 import { rutasComprobantes } from "./rutas/comprobantes.js";
 import { rutasContribuyentes } from "./rutas/contribuyentes.js";
+import { rutasLotes } from "./rutas/lotes.js";
 import { rutasProveedores } from "./rutas/proveedores.js";
+import { rutasReportes } from "./rutas/reportes.js";
 
 export interface OpcionesApp {
   db: BaseDeDatos;
@@ -62,6 +64,8 @@ export async function construirApp({
   await app.register(rutasArchivos, { prefix: "/api/archivos", db, almacenamiento });
   await app.register(rutasProveedores, { prefix: "/api/proveedores", db });
   await app.register(rutasCatalogos, { prefix: "/api/catalogos", db });
+  await app.register(rutasLotes, { prefix: "/api/lotes", db, almacenamiento });
+  await app.register(rutasReportes, { prefix: "/api/reportes", db });
 
   if (servirWeb && existsSync(config.carpetaWeb)) {
     await app.register(fastifyStatic, { root: config.carpetaWeb });

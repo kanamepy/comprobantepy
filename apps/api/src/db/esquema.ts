@@ -295,6 +295,8 @@ export const comprobantes = pgTable(
     entidadFinanciera: text("entidad_financiera"),
     numeroPatronalIps: text("numero_patronal_ips"),
     especificarTipoDocumento: text("especificar_tipo_documento"),
+    /** Estado dentro de los lotes de exportación (sección 15.3); null si nunca se incluyó. */
+    estadoMarangatu: text("estado_marangatu", { enum: ["INCLUIDO_EN_LOTE", "ENVIADO", "ACEPTADO_DNIT", "RECHAZADO_DNIT"] }),
     porcentajeNoImputado: numeric("porcentaje_no_imputado", { precision: 5, scale: 2 }).notNull().default("0"),
     estadoTecnico: text("estado_tecnico").notNull(),
     estadoFlujo: text("estado_flujo").notNull(),
@@ -356,4 +358,96 @@ export const imputaciones = pgTable(
     porcentaje: numeric("porcentaje", { precision: 5, scale: 2 }).notNull(),
   },
   (t) => [index("imputaciones_comprobante_idx").on(t.comprobanteId)],
+);
+
+/** Lote de exportación a Marangatu: un contribuyente, un período (sección 18.6). */
+export const lotes = pgTable(
+  "lotes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contribuyenteId: integer("contribuyente_id")
+      .notNull()
+      .references(() => contribuyentes.id),
+    obligacion: text("obligacion", { enum: ["955", "956"] }).notNull(),
+    anio: smallint("anio").notNull(),
+    /** Solo para el registro mensual (955). */
+    mes: smallint("mes"),
+    formato: text("formato", { enum: ["TXT", "CSV"] }).notNull(),
+    estado: text("estado", { enum: ["GENERADO", "ENVIADO", "CERRADO", "ANULADO"] })
+      .notNull()
+      .default("GENERADO"),
+    versionMatriz: text("version_matriz").notNull(),
+    versionMapeo: text("version_mapeo").notNull(),
+    conciliacion: jsonb("conciliacion").notNull(),
+    /** Comprobantes elegibles del período que no se incluyeron, con su motivo. */
+    excluidos: jsonb("excluidos").notNull().default([]),
+    generadoPor: integer("generado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    generadoEn: timestamp("generado_en", { withTimezone: true }).notNull().defaultNow(),
+    enviadoEn: date("enviado_en"),
+    enviadoPor: integer("enviado_por").references(() => usuarios.id),
+    cerradoEn: timestamp("cerrado_en", { withTimezone: true }),
+    anuladoMotivo: text("anulado_motivo"),
+    /** Motivo del reproceso cuando incluye comprobantes ya exportados antes (sección 18.1). */
+    motivoReproceso: text("motivo_reproceso"),
+  },
+  (t) => [index("lotes_contribuyente_idx").on(t.contribuyenteId)],
+);
+
+/** Archivos ZIP generados. Nunca se regeneran: una corrección produce un lote nuevo. */
+export const loteArchivos = pgTable(
+  "lote_archivos",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    loteId: integer("lote_id")
+      .notNull()
+      .references(() => lotes.id),
+    contribuyenteId: integer("contribuyente_id")
+      .notNull()
+      .references(() => contribuyentes.id),
+    anio: smallint("anio").notNull(),
+    mes: smallint("mes"),
+    identificador: text("identificador").notNull(),
+    nombreBase: text("nombre_base").notNull(),
+    nombreArchivo: text("nombre_archivo").notNull(),
+    nombreZip: text("nombre_zip").notNull(),
+    sha256Zip: text("sha256_zip").notNull(),
+    tamano: integer("tamano").notNull(),
+    filas: integer("filas").notNull(),
+    ruta: text("ruta").notNull(),
+  },
+  (t) => [
+    // El identificador XXXXX no se reutiliza para el mismo informante y período (sección 18.3).
+    uniqueIndex("lote_archivos_identificador_unico").on(t.contribuyenteId, t.anio, sql`coalesce(${t.mes}, 0)`, t.identificador),
+  ],
+);
+
+export const loteComprobantes = pgTable(
+  "lote_comprobantes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    loteId: integer("lote_id")
+      .notNull()
+      .references(() => lotes.id),
+    loteArchivoId: integer("lote_archivo_id")
+      .notNull()
+      .references(() => loteArchivos.id),
+    comprobanteId: integer("comprobante_id")
+      .notNull()
+      .references(() => comprobantes.id),
+    fila: integer("fila").notNull(),
+    estado: text("estado", { enum: ["INCLUIDO", "ENVIADO", "ACEPTADO_DNIT", "RECHAZADO_DNIT", "RETIRADO"] })
+      .notNull()
+      .default("INCLUIDO"),
+    /** true mientras el lote cuenta para el comprobante; un comprobante solo puede estar en un lote activo. */
+    activo: boolean("activo").notNull().default(true),
+    errorDnit: text("error_dnit"),
+    /** Campos exactamente como se exportaron. */
+    campos: jsonb("campos").notNull(),
+  },
+  (t) => [
+    uniqueIndex("lote_comprobantes_un_lote_activo").on(t.comprobanteId).where(sql`${t.activo}`),
+    index("lote_comprobantes_lote_idx").on(t.loteId),
+  ],
 );
