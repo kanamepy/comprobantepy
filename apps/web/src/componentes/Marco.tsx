@@ -9,6 +9,7 @@ const enlaces = [
   { a: "/cargar", texto: "Cargar", icono: "📷" },
   { a: "/exportar", texto: "Exportar", icono: "⬇" },
   { a: "/reporte", texto: "Reporte", icono: "📊" },
+  { a: "/irp", texto: "IRP-RSP", icono: "🧮" },
   { a: "/correo", texto: "Correo", icono: "✉" },
   { a: "/proveedores", texto: "Proveedores", icono: "🏪" },
   { a: "/contribuyentes", texto: "Contribuyentes", icono: "👥" },

@@ -4,6 +4,7 @@ import { Link } from "react-router";
 export function Mas() {
   const opciones = [
     { a: "/reporte", texto: "📊 Reporte tributario consolidado" },
+    { a: "/irp", texto: "🧮 IRP-RSP: seguimiento y proyección" },
     { a: "/correo", texto: "✉ Correo" },
     { a: "/proveedores", texto: "🏪 Proveedores y timbrados" },
     { a: "/contribuyentes", texto: "👥 Contribuyentes" },

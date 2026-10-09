@@ -8,6 +8,7 @@ import { Contribuyentes } from "./paginas/Contribuyentes";
 import { Correo } from "./paginas/Correo";
 import { Exportar } from "./paginas/Exportar";
 import { Inicio } from "./paginas/Inicio";
+import { Irp } from "./paginas/Irp";
 import { Login } from "./paginas/Login";
 import { Mas } from "./paginas/Mas";
 import { Proveedores } from "./paginas/Proveedores";
@@ -39,6 +40,7 @@ export function App() {
         <Route path="reporte" element={<Reporte />} />
         <Route path="mas" element={<Mas />} />
         <Route path="correo" element={<Correo />} />
+        <Route path="irp" element={<Irp />} />
         <Route path="contribuyentes" element={<Contribuyentes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

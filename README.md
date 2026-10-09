@@ -28,8 +28,8 @@ La especificación funcional completa es la versión 4.6 (`Especificacion_Funcio
 | Correos sin procesar dos veces, un registro aunque llegue por varios buzones, reenvíos de desconocidos a revisión, alertas si se pierde la conexión | ✅ |
 | Carga manual de correos guardados (.eml) | ✅ |
 | Lectura automática de fotos y PDF escaneados: OCR en español, QR de facturas electrónicas, aviso de fotos borrosas | ✅ |
-| Fase 5: seguimiento y proyección del IRP-RSP | ⏳ próxima etapa |
-| Fase 6: robustez y ampliaciones | ⏳ |
+| IRP-RSP: ingresos, créditos y saldos, tratamiento de egresos, escenarios confirmado y proyectado, completitud, cierres y tasas por ejercicio | ✅ |
+| Fase 6: robustez y ampliaciones (segunda barrera en la base, versiones de comprobantes aceptados, respaldos, antivirus) | ⏳ próxima etapa |
 
 ## Tecnologías
 
@@ -210,6 +210,17 @@ Para medir la exactitud con comprobantes reales (sección 21.3), poné en una ca
 ```bash
 npm run medir-lectura -w @comprobantepy/api -- ruta/a/la/carpeta
 ```
+
+## IRP-RSP: seguimiento y proyección
+
+En **IRP-RSP** se registran los ingresos del ejercicio, el saldo a favor del ejercicio anterior, las retenciones y percepciones, y se confirma el tratamiento de cada egreso imputado al IRP-RSP (deducible, parcialmente deducible o no deducible; se sugiere según el historial del proveedor). El tablero muestra dos escenarios:
+
+- **Confirmado:** solo comprobantes aprobados con tratamiento confirmado e ingresos y créditos confirmados.
+- **Proyectado:** suma lo pendiente; los egresos todavía sin analizar se suponen deducibles (se avisa).
+
+El impuesto se calcula por porciones con las tasas del ejercicio (por defecto, 8 %, 9 % y 10 % según el instructivo del Formulario N.° 515), que se pueden ajustar en **Tasas y tramos**. Los meses y el ejercicio se pueden **cerrar**: los cambios posteriores piden un motivo y se muestran como diferencia contra lo cerrado.
+
+> La proyección es **informativa**: no sustituye la declaración jurada ni el criterio del profesional responsable. Las compensaciones de pérdidas de ejercicios anteriores quedan deshabilitadas hasta que el especialista tributario las valide (decisión D-09).
 
 ## Respaldo
 
