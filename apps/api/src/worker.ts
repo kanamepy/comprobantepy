@@ -8,6 +8,7 @@ import { config } from "./config.js";
 import { googleConfigurado } from "./correo/gmail.js";
 import { sondearTodos } from "./correo/sondeo.js";
 import { crearConexion } from "./db/conexion.js";
+import { crearRespaldo, listarRespaldos, podarRespaldos } from "./respaldo/respaldo.js";
 import { procesarSiguienteTrabajo } from "./servicios/trabajos.js";
 
 const { db, pool } = crearConexion();
@@ -46,6 +47,32 @@ async function bucleCorreo() {
   }
 }
 
+/** Respaldo diario a la hora indicada en RESPALDO_DIARIO_HORA (sección 21.6). */
+async function bucleRespaldo() {
+  const hora = config.respaldoDiarioHora;
+  if (hora === null) return;
+  console.log(`[respaldo] respaldo diario a las ${hora}:00, se conservan ${config.respaldosConservar}.`);
+  while (!detenido) {
+    const ahora = new Date();
+    const hoy = `respaldo-${ahora.getFullYear()}${String(ahora.getMonth() + 1).padStart(2, "0")}${String(ahora.getDate()).padStart(2, "0")}`;
+    const [ultimo] = await listarRespaldos(config.carpetaRespaldos);
+    if (ahora.getHours() >= hora && !ultimo?.includes(hoy)) {
+      try {
+        const { carpeta, manifiesto } = await crearRespaldo({
+          databaseUrl: config.databaseUrl,
+          carpetaArchivos: config.carpetaArchivos,
+          carpetaRespaldos: config.carpetaRespaldos,
+        });
+        console.log(`[respaldo] listo: ${carpeta} (${manifiesto.cantidadArchivos} archivos)`);
+        await podarRespaldos(config.carpetaRespaldos, config.respaldosConservar);
+      } catch (error) {
+        console.error("[respaldo] error:", (error as Error).message);
+      }
+    }
+    await esperar(10 * 60 * 1000);
+  }
+}
+
 const detener = async () => {
   detenido = true;
   await cerrarOcr();
@@ -58,3 +85,4 @@ process.on("SIGTERM", detener);
 console.log("[trabajador] iniciado.");
 void bucleLectura();
 void bucleCorreo();
+void bucleRespaldo();

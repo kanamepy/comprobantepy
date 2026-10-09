@@ -20,6 +20,7 @@
     "db:generate": "npm run db:generate -w @comprobantepy/api",
     "db:migrate": "npm run build -w @comprobantepy/shared && npm run db:migrate -w @comprobantepy/api",
     "crear-usuario": "npm run crear-usuario -w @comprobantepy/api --",
+    "respaldo": "npm run respaldo -w @comprobantepy/api --",
     "worker": "npm run start:worker -w @comprobantepy/api"
   },
   "devDependencies": {

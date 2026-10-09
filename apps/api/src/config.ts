@@ -47,6 +47,10 @@ export const config = {
   clamav: process.env.CLAMAV_HOST
     ? { host: process.env.CLAMAV_HOST, puerto: Number(process.env.CLAMAV_PORT ?? 3310), esperaMs: Number(process.env.CLAMAV_ESPERA_MS ?? 30000) }
     : null,
+  /** Respaldos: carpeta destino, hora del respaldo diario automático (vacío = no) y cuántos conservar. */
+  carpetaRespaldos: process.env.CARPETA_RESPALDOS ?? fileURLToPath(new URL("../../../datos/respaldos", import.meta.url)),
+  respaldoDiarioHora: process.env.RESPALDO_DIARIO_HORA ? Number(process.env.RESPALDO_DIARIO_HORA) : null,
+  respaldosConservar: Number(process.env.RESPALDOS_CONSERVAR ?? 14),
   correoIntervaloMinutos: Number(process.env.CORREO_INTERVALO_MINUTOS ?? 5),
   /** Carpeta con el frontend compilado; en producción la API lo sirve. */
   carpetaWeb: fileURLToPath(new URL("../../web/dist", import.meta.url)),
