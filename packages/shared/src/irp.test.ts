@@ -39,3 +39,20 @@ describe("IRP-RSP por porciones (sección 20.5)", () => {
     expect(proyeccion.saldoProyectado).toBe(18_000_000 + 100_000 - 1_000_000 - 15_000_000 - 500_000);
   });
 });
+
+import { fraccionAdmitida, validarTramos } from "./irp.js";
+
+describe("tratamientos y parámetros", () => {
+  it("fracción admitida según el tratamiento", () => {
+    expect(fraccionAdmitida("DEDUCIBLE", null)).toBe(1);
+    expect(fraccionAdmitida("PARCIAL", 40)).toBe(0.4);
+    expect(fraccionAdmitida("NO_DEDUCIBLE", null)).toBe(0);
+    expect(fraccionAdmitida("PENDIENTE_ANALISIS", null)).toBe(0);
+  });
+
+  it("valida que los tramos sean crecientes y el último sin límite", () => {
+    expect(validarTramos([{ hasta: 50_000_000, tasaPuntosBasicos: 800 }, { hasta: null, tasaPuntosBasicos: 1000 }])).toEqual([]);
+    expect(validarTramos([{ hasta: 50_000_000, tasaPuntosBasicos: 800 }, { hasta: 40_000_000, tasaPuntosBasicos: 900 }, { hasta: null, tasaPuntosBasicos: 1000 }])).toHaveLength(1);
+    expect(validarTramos([{ hasta: 50_000_000, tasaPuntosBasicos: 800 }])).toContain("El último tramo no debe tener límite superior");
+  });
+});

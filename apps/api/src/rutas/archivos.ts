@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { Almacenamiento } from "../archivos/almacenamiento.js";
 import { ErrorHttp, exigirSesion } from "../auth/sesiones.js";
 import type { BaseDeDatos } from "../db/conexion.js";
-import { archivos, comprobanteArchivos, comprobantes, timbrados } from "../db/esquema.js";
+import { archivos, comprobanteArchivos, comprobantes, ingresos, irpMovimientos, timbrados } from "../db/esquema.js";
 import { guardarArchivo } from "../servicios/carga.js";
 import { idsVisibles, puedeVerPendientes } from "../servicios/comprobantes.js";
 
@@ -23,11 +23,16 @@ export async function rutasArchivos(app: FastifyInstance, { db, almacenamiento }
       .innerJoin(comprobantes, eq(comprobantes.id, comprobanteArchivos.comprobanteId))
       .where(eq(comprobanteArchivos.archivoId, id));
     const [evidenciaTimbrado] = await db.select({ id: timbrados.id }).from(timbrados).where(eq(timbrados.evidenciaArchivoId, id));
+    const respaldos = [
+      ...(await db.select({ contribuyenteId: ingresos.contribuyenteId }).from(ingresos).where(eq(ingresos.respaldoArchivoId, id))),
+      ...(await db.select({ contribuyenteId: irpMovimientos.contribuyenteId }).from(irpMovimientos).where(eq(irpMovimientos.respaldoArchivoId, id))),
+    ];
     const visibles = idsVisibles(usuario);
     const permitido =
       archivo.subidoPor === usuario.id ||
       vinculos.some((v) => (v.contribuyenteId === null ? puedeVerPendientes(usuario) : visibles.includes(v.contribuyenteId))) ||
-      (Boolean(evidenciaTimbrado) && puedeVerPendientes(usuario));
+      (Boolean(evidenciaTimbrado) && puedeVerPendientes(usuario)) ||
+      respaldos.some((r) => visibles.includes(r.contribuyenteId));
     if (!permitido) throw new ErrorHttp(404, "NO_ENCONTRADO", "Archivo inexistente");
 
     const contenido = await almacenamiento.leer(archivo.ruta);

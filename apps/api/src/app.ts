@@ -15,6 +15,7 @@ import { rutasComprobantes } from "./rutas/comprobantes.js";
 import { rutasContribuyentes } from "./rutas/contribuyentes.js";
 import { rutasCorreo } from "./rutas/correo.js";
 import type { FabricaAdaptador } from "./correo/sondeo.js";
+import { rutasIrp } from "./rutas/irp.js";
 import { rutasLotes } from "./rutas/lotes.js";
 import { rutasProveedores } from "./rutas/proveedores.js";
 import { rutasReportes } from "./rutas/reportes.js";
@@ -70,6 +71,7 @@ export async function construirApp({
   await app.register(rutasCatalogos, { prefix: "/api/catalogos", db });
   await app.register(rutasLotes, { prefix: "/api/lotes", db, almacenamiento });
   await app.register(rutasReportes, { prefix: "/api/reportes", db });
+  await app.register(rutasIrp, { prefix: "/api/irp", db });
   await app.register(rutasCorreo, { prefix: "/api/correo", db, almacenamiento, fabricaAdaptador: fabricaAdaptadorCorreo });
 
   if (servirWeb && existsSync(config.carpetaWeb)) {

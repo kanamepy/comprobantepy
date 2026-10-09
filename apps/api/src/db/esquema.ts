@@ -297,6 +297,14 @@ export const comprobantes = pgTable(
     especificarTipoDocumento: text("especificar_tipo_documento"),
     /** Estado dentro de los lotes de exportación (sección 15.3); null si nunca se incluyó. */
     estadoMarangatu: text("estado_marangatu", { enum: ["INCLUIDO_EN_LOTE", "ENVIADO", "ACEPTADO_DNIT", "RECHAZADO_DNIT"] }),
+    /** Tratamiento del egreso para el IRP-RSP (sección 20.3); null = pendiente de análisis. */
+    irpTratamiento: text("irp_tratamiento", {
+      enum: ["DEDUCIBLE", "PARCIAL", "NO_DEDUCIBLE", "PENDIENTE_ANALISIS", "REQUIERE_DOCUMENTACION", "OBSERVADO"],
+    }),
+    irpPorcentajeAdmitido: numeric("irp_porcentaje_admitido", { precision: 5, scale: 2 }),
+    /** El tratamiento sugerido se vuelve definitivo solo cuando lo confirma el Financiero. */
+    irpTratamientoConfirmado: boolean("irp_tratamiento_confirmado").notNull().default(false),
+    irpTratamientoMotivo: text("irp_tratamiento_motivo"),
     porcentajeNoImputado: numeric("porcentaje_no_imputado", { precision: 5, scale: 2 }).notNull().default("0"),
     estadoTecnico: text("estado_tecnico").notNull(),
     estadoFlujo: text("estado_flujo").notNull(),
@@ -573,4 +581,92 @@ export const trabajos = pgTable(
     ...marcasDeTiempo,
   },
   (t) => [index("trabajos_pendientes_idx").on(t.disponibleEn).where(sql`${t.estado} = 'PENDIENTE'`)],
+);
+
+/** Ingresos para el seguimiento del IRP-RSP (sección 20.2). Importes en guaraníes. */
+export const ingresos = pgTable(
+  "ingresos",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contribuyenteId: integer("contribuyente_id")
+      .notNull()
+      .references(() => contribuyentes.id),
+    fecha: date("fecha").notNull(),
+    tipo: text("tipo", { enum: ["SALARIO", "HONORARIOS", "COMISIONES", "OTROS_GRAVADOS", "EXONERADO", "ATRIBUIDO", "AJUSTE"] }).notNull(),
+    tratamiento: text("tratamiento", { enum: ["GRAVADO", "EXONERADO"] }).notNull(),
+    actividadId: integer("actividad_id").references(() => actividades.id),
+    pagador: text("pagador"),
+    descripcion: text("descripcion"),
+    importe: numeric("importe", { precision: 20, scale: 0 }).notNull(),
+    estado: text("estado", { enum: ["PENDIENTE", "CONFIRMADO", "ANULADO"] }).notNull(),
+    respaldoArchivoId: integer("respaldo_archivo_id").references(() => archivos.id),
+    anuladoMotivo: text("anulado_motivo"),
+    creadoPor: integer("creado_por").references(() => usuarios.id),
+    ...marcasDeTiempo,
+  },
+  (t) => [index("ingresos_contribuyente_fecha_idx").on(t.contribuyenteId, t.fecha)],
+);
+
+/** Saldo anterior, retenciones, percepciones, ajustes y multas (sección 20.4). */
+export const irpMovimientos = pgTable(
+  "irp_movimientos",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contribuyenteId: integer("contribuyente_id")
+      .notNull()
+      .references(() => contribuyentes.id),
+    ejercicio: smallint("ejercicio").notNull(),
+    fecha: date("fecha").notNull(),
+    tipo: text("tipo", { enum: ["SALDO_ANTERIOR", "RETENCION", "PERCEPCION", "AJUSTE", "MULTA"] }).notNull(),
+    agente: text("agente"),
+    numeroComprobante: text("numero_comprobante"),
+    descripcion: text("descripcion"),
+    importe: numeric("importe", { precision: 20, scale: 0 }).notNull(),
+    estado: text("estado", { enum: ["PENDIENTE", "CONFIRMADO", "ANULADO"] }).notNull(),
+    respaldoArchivoId: integer("respaldo_archivo_id").references(() => archivos.id),
+    anuladoMotivo: text("anulado_motivo"),
+    creadoPor: integer("creado_por").references(() => usuarios.id),
+    ...marcasDeTiempo,
+  },
+  (t) => [index("irp_movimientos_contribuyente_idx").on(t.contribuyenteId, t.ejercicio)],
+);
+
+/** Tasas, tramos y conceptos habilitados por ejercicio (secciones 20.4 y 20.5, RF-038). */
+export const irpParametros = pgTable("irp_parametros", {
+  ejercicio: smallint("ejercicio").primaryKey(),
+  /** [{ hasta: number | null, tasaPuntosBasicos: number }] */
+  tramos: jsonb("tramos").notNull(),
+  compensacionesHabilitadas: boolean("compensaciones_habilitadas").notNull().default(false),
+  fuente: text("fuente").notNull(),
+  version: integer("version").notNull().default(1),
+  actualizadoPor: integer("actualizado_por").references(() => usuarios.id),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Cierres de control mensuales y anual con su fotografía (sección 20.7). */
+export const irpCierres = pgTable(
+  "irp_cierres",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contribuyenteId: integer("contribuyente_id")
+      .notNull()
+      .references(() => contribuyentes.id),
+    ejercicio: smallint("ejercicio").notNull(),
+    /** null = cierre anual. */
+    mes: smallint("mes"),
+    estado: text("estado", { enum: ["CERRADO", "REABIERTO"] }).notNull().default("CERRADO"),
+    fotografia: jsonb("fotografia").notNull(),
+    cerradoPor: integer("cerrado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    cerradoEn: timestamp("cerrado_en", { withTimezone: true }).notNull().defaultNow(),
+    reabiertoPor: integer("reabierto_por").references(() => usuarios.id),
+    reabiertoEn: timestamp("reabierto_en", { withTimezone: true }),
+    motivoReapertura: text("motivo_reapertura"),
+  },
+  (t) => [
+    uniqueIndex("irp_cierres_vigente_unico")
+      .on(t.contribuyenteId, t.ejercicio, sql`coalesce(${t.mes}, 0)`)
+      .where(sql`${t.estado} = 'CERRADO'`),
+  ],
 );

@@ -87,3 +87,43 @@ export function proyectarIrpRsp(datos: DatosProyeccion): Proyeccion {
     (datos.percepciones ?? 0);
   return { rentaNetaCalculada, rentaNetaImponible, impuestoDeterminado: impuesto, detalle, saldoProyectado };
 }
+
+/** Tratamiento de un egreso para el IRP-RSP (sección 20.3). */
+export const TRATAMIENTOS_EGRESO = ["DEDUCIBLE", "PARCIAL", "NO_DEDUCIBLE", "PENDIENTE_ANALISIS", "REQUIERE_DOCUMENTACION", "OBSERVADO"] as const;
+export type TratamientoEgreso = (typeof TRATAMIENTOS_EGRESO)[number];
+
+export const ETIQUETA_TRATAMIENTO: Record<TratamientoEgreso, string> = {
+  DEDUCIBLE: "Deducible",
+  PARCIAL: "Parcialmente deducible",
+  NO_DEDUCIBLE: "No deducible",
+  PENDIENTE_ANALISIS: "Pendiente de análisis",
+  REQUIERE_DOCUMENTACION: "Requiere documentación",
+  OBSERVADO: "Observado",
+};
+
+/** Parte del importe imputado que se admite como egreso (0 a 1). */
+export function fraccionAdmitida(tratamiento: TratamientoEgreso | null, porcentajeAdmitido: number | null): number {
+  if (tratamiento === "DEDUCIBLE") return 1;
+  if (tratamiento === "PARCIAL") return Math.min(Math.max((porcentajeAdmitido ?? 0) / 100, 0), 1);
+  return 0;
+}
+
+/** Los tramos deben ser crecientes, con tasas válidas y el último sin límite. */
+export function validarTramos(tramos: readonly Tramo[]): string[] {
+  const errores: string[] = [];
+  if (tramos.length === 0) errores.push("Debe haber al menos un tramo");
+  let anterior = 0;
+  tramos.forEach((t, i) => {
+    const ultimo = i === tramos.length - 1;
+    if (!Number.isInteger(t.tasaPuntosBasicos) || t.tasaPuntosBasicos < 0 || t.tasaPuntosBasicos > 10000) {
+      errores.push(`Tramo ${i + 1}: la tasa debe estar entre 0 % y 100 %`);
+    }
+    if (ultimo && t.hasta !== null) errores.push("El último tramo no debe tener límite superior");
+    if (!ultimo) {
+      if (t.hasta === null) errores.push(`Tramo ${i + 1}: solo el último tramo puede no tener límite`);
+      else if (!Number.isSafeInteger(t.hasta) || t.hasta <= anterior) errores.push(`Tramo ${i + 1}: los límites deben ser crecientes`);
+      else anterior = t.hasta;
+    }
+  });
+  return errores;
+}

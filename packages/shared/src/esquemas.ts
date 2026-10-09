@@ -133,3 +133,51 @@ export const esquemaVerificacionTimbrado = z.object({
   evidenciaArchivoId: z.number().int().positive().nullable().optional(),
   observacion: z.string().trim().max(1000).optional(),
 });
+
+const fechaIsoIrp = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+const importeGs = z.number().int("Importe en guaraníes, sin decimales").min(0, "El importe no puede ser negativo").max(1e15);
+
+/** Ingreso para el seguimiento del IRP-RSP (sección 20.2). */
+export const esquemaIngreso = z.object({
+  fecha: fechaIsoIrp,
+  tipo: z.enum(["SALARIO", "HONORARIOS", "COMISIONES", "OTROS_GRAVADOS", "EXONERADO", "ATRIBUIDO", "AJUSTE"]),
+  tratamiento: z.enum(["GRAVADO", "EXONERADO"]),
+  actividadId: z.number().int().positive().nullable().optional(),
+  pagador: z.string().trim().max(250).optional(),
+  descripcion: z.string().trim().max(500).optional(),
+  importe: importeGs,
+  respaldoArchivoId: z.number().int().positive().nullable().optional(),
+  /** Obligatorio si la fecha cae en un mes cerrado (sección 20.7). */
+  motivo: z.string().trim().max(500).optional(),
+});
+
+/** Saldo anterior, retención, percepción, ajuste o multa (sección 20.4). */
+export const esquemaMovimientoIrp = z.object({
+  fecha: fechaIsoIrp,
+  tipo: z.enum(["SALDO_ANTERIOR", "RETENCION", "PERCEPCION", "AJUSTE", "MULTA"]),
+  agente: z.string().trim().max(250).optional(),
+  numeroComprobante: z.string().trim().max(50).optional(),
+  descripcion: z.string().trim().max(500).optional(),
+  importe: importeGs,
+  respaldoArchivoId: z.number().int().positive().nullable().optional(),
+  motivo: z.string().trim().max(500).optional(),
+});
+
+/** Confirmación del tratamiento de uno o varios egresos (sección 20.3). */
+export const esquemaTratamientoEgresos = z
+  .object({
+    ids: z.array(z.number().int().positive()).min(1).max(500),
+    tratamiento: z.enum(["DEDUCIBLE", "PARCIAL", "NO_DEDUCIBLE", "PENDIENTE_ANALISIS", "REQUIERE_DOCUMENTACION", "OBSERVADO"]).optional(),
+    /** Confirmar el tratamiento sugerido de cada uno, en lugar de uno fijo. */
+    usarSugerencia: z.boolean().optional(),
+    porcentajeAdmitido: z.number().min(0).max(100).optional(),
+    motivo: z.string().trim().max(500).optional(),
+  })
+  .refine((d) => d.tratamiento || d.usarSugerencia, { message: "Elegí un tratamiento", path: ["tratamiento"] })
+  .refine((d) => d.tratamiento !== "PARCIAL" || d.porcentajeAdmitido !== undefined, { message: "Indicá el porcentaje admitido", path: ["porcentajeAdmitido"] });
+
+export const esquemaParametrosIrp = z.object({
+  tramos: z.array(z.object({ hasta: z.number().int().positive().nullable(), tasaPuntosBasicos: z.number().int().min(0).max(10000) })).min(1).max(10),
+  compensacionesHabilitadas: z.boolean().default(false),
+  fuente: z.string().trim().min(3, "Indicá la fuente normativa").max(300),
+});
