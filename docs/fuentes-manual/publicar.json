@@ -1,0 +1,30 @@
+{
+  "titulo": "ComprobantePy – Publicar en internet",
+  "portada": ["Publicar en ", "internet"],
+  "subtitulo": "Servidor en la nube, dominio .com.py (NIC.py) y HTTPS, paso a paso",
+  "etiqueta": "Publicar en internet",
+  "agenda": ["Pasos de la ", "publicación"],
+  "cierre": ["En línea y ", "seguro"],
+  "cierreTexto": "Guardá el .env del servidor, la IP y los accesos en tu gestor de contraseñas.",
+  "cierreNota": "Agendá la renovación anual del dominio: día 25 del mes de activación.",
+  "partesTitulo": {
+    "Cómo usar esta guía": ["Cómo usar esta ", "guía"],
+    "Parte A: datos y elementos a preparar": ["Parte A: datos y elementos a ", "preparar"],
+    "Parte B: contratar el servidor": ["Parte B: contratar el ", "servidor"],
+    "Parte C: registrar el dominio .com.py en NIC.py": ["Parte C: registrar el dominio ", ".com.py"],
+    "Parte D: instalar el programa en el servidor": ["Parte D: instalar en el ", "servidor"],
+    "Parte E: verificar y mantener": ["Parte E: verificar y ", "mantener"],
+    "Alternativa sin dominio .com.py": ["Alternativa sin dominio ", ".com.py"],
+    "Si algo falla": ["Si algo ", "falla"],
+    "Fuentes": ["", "Fuentes"]
+  },
+  "mensajes": {
+    "Cómo usar esta guía": "Servidor, DNS, dominio e instalación: en ese orden.",
+    "Parte A: datos y elementos a preparar": "Con estos datos a mano, cada formulario se completa en minutos.",
+    "Parte B: contratar el servidor": "Anotá la IP del servidor: se usa en el DNS y en la conexión.",
+    "Parte C: registrar el dominio .com.py en NIC.py": "Pagá dentro de los 15 días desde la aprobación, o la solicitud se da por desistida.",
+    "Parte D: instalar el programa en el servidor": "La CLAVE_CIFRADO del servidor se guarda aparte, siempre.",
+    "Parte E: verificar y mantener": "Respaldo semanal fuera del servidor y renovación anual del dominio.",
+    "Si algo falla": "Casi todo problema de HTTPS es el dominio que todavía no apunta al servidor."
+  }
+}

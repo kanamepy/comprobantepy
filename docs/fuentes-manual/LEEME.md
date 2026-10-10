@@ -15,3 +15,9 @@ El documento de implementación y verificación usa el mismo generador con su co
 ```bash
 node docs/fuentes-manual/generar-word.cjs docs/PASO_A_PASO.md docs/Implementacion_y_verificacion_ComprobantePy.docx docs/fuentes-manual docs/fuentes-manual/verificacion.json
 ```
+
+Y la guía de publicación:
+
+```bash
+node docs/fuentes-manual/generar-word.cjs docs/PUBLICAR_EN_INTERNET.md docs/Publicar_en_internet_ComprobantePy.docx docs/fuentes-manual docs/fuentes-manual/publicar.json
+```

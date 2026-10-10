@@ -6,6 +6,8 @@ Esta guía explica **todo lo necesario** para instalar, probar, usar, respaldar 
 
 > **Tu caso: Windows de 64 bits, uso interno en la casa.** No hace falta publicar nada en internet: la aplicación funciona en tu PC y se puede usar desde los celulares de la casa por wifi. La publicación ([sección 11](#11-publicar-la-aplicación-en-internet)) es opcional, para más adelante.
 
+> **Si algo no funciona:** doble clic en `Diagnostico.cmd` y compartí el archivo `diagnostico.txt` que genera. **Para traer mejoras:** doble clic en `Actualizar.cmd`.
+
 > **Implementación paso a paso con casillas de verificación:** [docs/PASO_A_PASO.md](docs/PASO_A_PASO.md), y en Word: `docs/Implementacion_y_verificacion_ComprobantePy.docx`.
 
 ## Camino más corto: con doble clic (casi sin escribir)
@@ -490,6 +492,8 @@ Es **opcional**: sin Gmail se puede cargar todo a mano o subir correos guardados
 ---
 
 ## 11. Publicar la aplicación en internet
+
+> **Guía detallada con dominio .com.py (NIC.py / CNC), DigitalOcean, datos que piden y casillas de verificación:** [docs/PUBLICAR_EN_INTERNET.md](docs/PUBLICAR_EN_INTERNET.md), y en Word: `docs/Publicar_en_internet_ComprobantePy.docx`.
 
 > **Opcional.** Para uso interno en la casa no hace falta: alcanza con la PC encendida y `Iniciar.cmd` (y los celulares por wifi, ver [sección 5](#5-iniciar-y-detener-la-aplicación-todos-los-días)). Publicar sirve si querés entrar desde fuera de la casa; implica pagar un servidor y un dominio.
 

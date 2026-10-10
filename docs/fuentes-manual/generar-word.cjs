@@ -5,7 +5,7 @@ const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, ShadingType,
   BorderStyle, AlignmentType, LevelFormat, ImageRun, Footer, Header, PageNumber, PageBreak, TableLayoutType,
   LineRuleType, HorizontalPositionRelativeFrom, VerticalPositionRelativeFrom, VerticalAlign, PositionalTab,
-  PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader, HeightRule,
+  PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader, HeightRule, ExternalHyperlink,
 } = require("docx");
 
 const [, , entrada, salida, recursos, archivoConfig] = process.argv;
@@ -73,12 +73,15 @@ const bordeTabla = { style: BorderStyle.SINGLE, size: 4, color: GRIS_BORDE }; //
 
 function runs(texto, base = {}) {
   const partes = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let ultimo = 0, m;
   while ((m = re.exec(texto))) {
     if (m.index > ultimo) partes.push(new TextRun({ text: texto.slice(ultimo, m.index), ...base }));
     const t = m[0];
-    if (t.startsWith("**")) partes.push(new TextRun({ text: t.slice(2, -2), ...base, bold: true }));
+    if (t.startsWith("[")) {
+      const [, etiqueta, enlace] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(t);
+      partes.push(new ExternalHyperlink({ link: enlace, children: [new TextRun({ text: etiqueta, ...base, color: AZUL, underline: {} })] }));
+    } else if (t.startsWith("**")) partes.push(new TextRun({ text: t.slice(2, -2), ...base, bold: true }));
     else partes.push(new TextRun({ text: t.slice(1, -1), ...base, font: "Consolas", shading: { type: ShadingType.CLEAR, fill: GRIS_CLARO, color: "auto" } }));
     ultimo = m.index + t.length;
   }
