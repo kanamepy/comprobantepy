@@ -1,0 +1,29 @@
+{
+  "titulo": "ComprobantePy – Implementación y verificación",
+  "portada": ["Implementación y ", "verificación"],
+  "subtitulo": "Paso a paso para instalar, probar y poner en marcha ComprobantePy",
+  "etiqueta": "Implementación y verificación",
+  "agenda": ["Pasos de la ", "implementación"],
+  "cierre": ["Implementación ", "verificada"],
+  "cierreTexto": "Guardá este documento completo junto con la clave de cifrado y los respaldos.",
+  "cierreNota": "Ante cualquier error, anotá el número de paso y el mensaje completo.",
+  "partesTitulo": {
+    "Cómo usar esta guía": ["Cómo usar esta ", "guía"],
+    "Parte A: preparar la notebook": ["Parte A: preparar la ", "notebook"],
+    "Parte B: instalar el programa": ["Parte B: instalar el ", "programa"],
+    "Parte C: usar el programa": ["Parte C: usar el ", "programa"],
+    "Parte D: verificar que funciona": ["Parte D: verificar que ", "funciona"],
+    "Puesta en marcha segura": ["Puesta en marcha ", "segura"],
+    "Si algo falla": ["Si algo ", "falla"],
+    "Resultado de la implementación": ["Resultado de la ", "implementación"]
+  },
+  "mensajes": {
+    "Cómo usar esta guía": "Un paso a la vez: recién al ver el resultado esperado, pasá al siguiente.",
+    "Parte A: preparar la notebook": "Con la virtualización activa, WSL 2, Node.js y Docker, la notebook queda lista.",
+    "Parte B: instalar el programa": "Preparar.cmd hace los pasos 8 a 13 de una sola vez.",
+    "Parte C: usar el programa": "Cada día: Docker Desktop abierto y doble clic en Iniciar.cmd.",
+    "Parte D: verificar que funciona": "La prueba clave es que Marangatu acepte el archivo exportado.",
+    "Puesta en marcha segura": "Sin la clave de cifrado guardada aparte, ningún respaldo sirve.",
+    "Si algo falla": "Anotá el número de paso y copiá el mensaje completo de la terminal."
+  }
+}

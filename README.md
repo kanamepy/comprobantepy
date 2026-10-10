@@ -2,7 +2,7 @@
 
 Aplicación web para recibir, validar y registrar comprobantes de compras y egresos de varios contribuyentes de una familia, y generar los archivos de importación para **Marangatu** (DNIT, Paraguay).
 
-> 📘 **¿Primera vez o no recordás cómo funciona?** Leé **[GUIA.md](GUIA.md)** (instalación) y **[docs/MANUAL_USUARIO.md](docs/MANUAL_USUARIO.md)** (qué hace cada módulo). La guía cubre instalación, pruebas, respaldos y publicación paso a paso, con alternativas si algo falla. En Windows alcanza con hacer doble clic en `Preparar.cmd` y después en `Iniciar.cmd`.
+> 📘 **¿Primera vez o no recordás cómo funciona?** Seguí **[docs/PASO_A_PASO.md](docs/PASO_A_PASO.md)** (implementación y verificación, con casillas para marcar), **[GUIA.md](GUIA.md)** (referencia completa) y **[docs/MANUAL_USUARIO.md](docs/MANUAL_USUARIO.md)** (qué hace cada módulo). Las versiones en Word están en `docs/`. La guía cubre instalación, pruebas, respaldos y publicación paso a paso, con alternativas si algo falla. En Windows alcanza con hacer doble clic en `Preparar.cmd` y después en `Iniciar.cmd`.
 
 La especificación funcional completa es la versión 4.6 (`Especificacion_Funcional_Unificada_Comprobantes_Marangatu_v4.md`). Las secciones citadas en el código (por ejemplo "sección 18.4") se refieren a ese documento.
 

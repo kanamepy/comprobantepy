@@ -6,6 +6,8 @@ Esta guía explica **todo lo necesario** para instalar, probar, usar, respaldar 
 
 > **Tu caso: Windows de 64 bits, uso interno en la casa.** No hace falta publicar nada en internet: la aplicación funciona en tu PC y se puede usar desde los celulares de la casa por wifi. La publicación ([sección 11](#11-publicar-la-aplicación-en-internet)) es opcional, para más adelante.
 
+> **Implementación paso a paso con casillas de verificación:** [docs/PASO_A_PASO.md](docs/PASO_A_PASO.md), y en Word: `docs/Implementacion_y_verificacion_ComprobantePy.docx`.
+
 ## Camino más corto: con doble clic (casi sin escribir)
 
 En la carpeta del proyecto hay cuatro archivos que se abren con **doble clic** desde el Explorador de Windows:

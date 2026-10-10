@@ -8,7 +8,7 @@ const {
   PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader, HeightRule,
 } = require("docx");
 
-const [, , entrada, salida, recursos] = process.argv;
+const [, , entrada, salida, recursos, archivoConfig] = process.argv;
 const carpetaMd = path.dirname(entrada);
 
 // Paleta
@@ -23,6 +23,20 @@ const MARGEN_LATERAL = 0.6 * PULGADA;
 const ANCHO = LADO - 2 * MARGEN_LATERAL; // 8,8"
 const pt = (n) => Math.round(n * 2); // tamaño en medios puntos
 
+// Textos propios de cada documento: se pueden reemplazar con un archivo de configuración (JSON).
+const CONFIG_INSTRUCTIVO = {
+  titulo: "ComprobantePy – Instructivo de usuario",
+  portada: ["Instructivo de ", "usuario"],
+  subtitulo: "Qué hace el sistema y cómo se usa cada módulo",
+  etiqueta: "Instructivo de usuario",
+  agenda: ["Contenido del ", "instructivo"],
+  cierre: ["Listo para ", "empezar"],
+  cierreTexto: "Instalación, comandos y solución de problemas: archivo GUIA.md del proyecto.",
+  cierreNota: "Ante cualquier error, anotá qué estabas haciendo y el mensaje completo.",
+  cifras: { seccion: "Qué es ComprobantePy", items: [["10", "módulos"], ["4", "perfiles"], ["8", "pasos por comprobante"]] },
+};
+const CONFIG = archivoConfig ? { ...CONFIG_INSTRUCTIVO, cifras: null, ...JSON.parse(fs.readFileSync(archivoConfig, "utf8")) } : CONFIG_INSTRUCTIVO;
+
 // Partes de cada título: la segunda va en azul Francia.
 const PARTES_TITULO = {
   "Qué es ComprobantePy": ["Qué es ", "ComprobantePy"],
@@ -33,6 +47,7 @@ const PARTES_TITULO = {
   "Tareas frecuentes": ["Tareas ", "frecuentes"],
   "Preguntas frecuentes": ["Preguntas ", "frecuentes"],
   "Buenas prácticas y seguridad": ["Buenas prácticas y ", "seguridad"],
+  ...(CONFIG.partesTitulo ?? {}),
 };
 // Idea principal de cada sección (recuadro de mensaje), alternando verde, azul y carbón.
 const MENSAJES = {
@@ -44,6 +59,7 @@ const MENSAJES = {
   "Tareas frecuentes": "Revisá siempre lo marcado en amarillo antes de confirmar.",
   "Preguntas frecuentes": "Nada se borra: se anula con motivo y queda en el historial.",
   "Buenas prácticas y seguridad": "Respaldo semanal fuera de la PC y la clave de cifrado guardada aparte.",
+  ...(CONFIG.mensajes ?? {}),
 };
 const ESTILOS_MENSAJE = [
   { fondo: VERDE, texto: CARBON },
@@ -102,9 +118,15 @@ function tabla(filas) {
   const n = filas[0].length;
   const largos = filas[0].map((_, c) => Math.max(...filas.map((f) => (f[c] ?? "").replace(/\*\*|`/g, "").length), 8));
   const total = largos.reduce((a, b) => a + b, 0);
-  let anchos = largos.map((l, c) => Math.max(c === 0 ? 2300 : 1800, Math.round((ANCHO * l) / total)));
+  // Columnas de casillas (☐) angostas; el resto, según el largo del texto.
+  const esCasilla = filas[0].map((_, c) => filas.slice(1).every((f) => (f[c] ?? "") === "\u2610") && filas.length > 1);
+  // Columnas para completar a mano (vacías): ancho fijo para escribir.
+  const esVacia = filas[0].map((_, c) => filas.length > 1 && filas.slice(1).every((f) => !(f[c] ?? "").trim()));
+  let anchos = largos.map((l, c) => esCasilla[c] ? 1050 : Math.max(c === 0 ? 1500 : 1800, esVacia[c] ? 2600 : 0, Math.round((ANCHO * l) / total)));
   const suma = anchos.reduce((a, b) => a + b, 0);
-  anchos = anchos.map((a) => Math.floor((a * ANCHO) / suma));
+  const fijo = anchos.reduce((s, a, c) => s + (esCasilla[c] || esVacia[c] ? a : 0), 0);
+  const variable = suma - fijo;
+  anchos = anchos.map((a, c) => esCasilla[c] || esVacia[c] ? a : Math.floor((a * (ANCHO - fijo)) / variable));
   anchos[n - 1] += ANCHO - anchos.reduce((a, b) => a + b, 0);
   const celda = (texto, c, fila) => {
     const encabezado = fila === 0;
@@ -118,7 +140,8 @@ function tabla(filas) {
       margins: { top: 100, bottom: 100, left: 140, right: 140 },
       borders: { top: bordeTabla, bottom: bordeTabla, left: bordeTabla, right: bordeTabla },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ spacing: { before: 0, after: 0 }, children: runs(texto, base) })],
+      children: [new Paragraph({ alignment: texto === "\u2610" ? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { before: 0, after: 0 },
+        children: runs(texto, texto === "\u2610" ? { ...base, size: pt(16), color: AZUL } : base) })],
     });
   };
   return new Table({
@@ -172,6 +195,63 @@ function cifrasClave(items) {
   });
 }
 
+// Comandos para copiar: fondo carbón, letra monoespaciada en blanco.
+function recuadroCodigo(lineas) {
+  return new Table({
+    width: { size: ANCHO, type: WidthType.DXA },
+    columnWidths: [ANCHO],
+    rows: [new TableRow({ cantSplit: true, children: [new TableCell({
+      width: { size: ANCHO, type: WidthType.DXA },
+      shading: { type: ShadingType.CLEAR, fill: CARBON, color: "auto" },
+      borders: sinBordes,
+      margins: { top: 160, bottom: 160, left: 260, right: 260 },
+      children: lineas.map((l) => new Paragraph({ spacing: { before: 0, after: 40 },
+        children: [new TextRun({ text: l || " ", font: "Consolas", size: pt(12), color: BLANCO })] })),
+    })] })],
+  });
+}
+
+// Casilla para marcar el paso: OK / con error y espacio para observaciones.
+function casillaVerificacion(texto) {
+  const a = Math.round(ANCHO * 0.42), b = ANCHO - a;
+  const celda = (ancho, hijos, fondo) => new TableCell({
+    width: { size: ancho, type: WidthType.DXA },
+    shading: { type: ShadingType.CLEAR, fill: fondo, color: "auto" },
+    borders: sinBordes,
+    margins: { top: 120, bottom: 120, left: 220, right: 220 },
+    verticalAlign: VerticalAlign.CENTER,
+    children: hijos,
+  });
+  return new Table({
+    width: { size: ANCHO, type: WidthType.DXA },
+    columnWidths: [a, b],
+    layout: TableLayoutType.FIXED,
+    rows: [new TableRow({ cantSplit: true, children: [
+      celda(a, [new Paragraph({ spacing: { before: 0, after: 0 }, children: [
+        new TextRun({ text: "\u2610 OK    \u2610 Con error", font: TEXTO, size: pt(13), bold: true, color: CARBON }),
+      ] }), new Paragraph({ spacing: { before: 40, after: 0 }, children: runs(texto, { font: TEXTO, size: pt(11), color: GRIS_TEXTO }) })], LAVANDA_CLARO),
+      celda(b, [new Paragraph({ spacing: { before: 0, after: 0 }, children: [
+        new TextRun({ text: "Observaciones:", font: TEXTO, size: pt(11), color: GRIS_TEXTO }),
+      ] }), new Paragraph({ spacing: { before: 200, after: 0 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: GRIS_BORDE, space: 2 } }, children: [] })], GRIS_CLARO),
+    ] })],
+  });
+}
+
+// Nota importante: panel lavanda claro con texto carbón en negrita.
+function notaDestacada(texto) {
+  return new Table({
+    width: { size: ANCHO, type: WidthType.DXA },
+    columnWidths: [ANCHO],
+    rows: [new TableRow({ cantSplit: true, children: [new TableCell({
+      width: { size: ANCHO, type: WidthType.DXA },
+      shading: { type: ShadingType.CLEAR, fill: LAVANDA_CLARO, color: "auto" },
+      borders: { ...sinBordes, left: { style: BorderStyle.SINGLE, size: 36, color: AZUL } },
+      margins: { top: 160, bottom: 160, left: 260, right: 260 },
+      children: [new Paragraph({ spacing: { before: 0, after: 0 }, children: runs(texto, { font: TEXTO, size: pt(13), bold: true, color: CARBON }) })],
+    })] })],
+  });
+}
+
 const espacio = (despues = 200) => new Paragraph({ spacing: { before: 0, after: despues }, children: [] });
 
 // --- Contenido a partir del Markdown ---
@@ -182,9 +262,9 @@ let refLista = 0, i = 0, numeroSeccion = -1, seccionActual = null;
 
 function cerrarSeccion() {
   if (seccionActual === null) return;
-  if (seccionActual === "Qué es ComprobantePy") {
+  if (CONFIG.cifras && seccionActual === CONFIG.cifras.seccion) {
     bloques.push(espacio(160));
-    bloques.push(cifrasClave([["10", "módulos"], ["4", "perfiles"], ["8", "pasos por comprobante"]]));
+    bloques.push(cifrasClave(CONFIG.cifras.items));
   }
   if (MENSAJES[seccionActual]) {
     bloques.push(espacio(240));
@@ -206,6 +286,25 @@ while (i < md.length) {
   if (linea.startsWith("### ")) {
     bloques.push(new Paragraph({ heading: HeadingLevel.HEADING_2, keepNext: true, spacing: { before: 280, after: 120 },
       children: [new TextRun({ text: linea.slice(4).trim(), font: TITULOS, size: pt(22), bold: true, color: AZUL })] }));
+    i++; continue;
+  }
+  if (linea.startsWith("```")) {
+    const lineas = [];
+    i++;
+    while (i < md.length && !md[i].startsWith("```")) lineas.push(md[i++]);
+    i++;
+    bloques.push(recuadroCodigo(lineas));
+    bloques.push(espacio(120));
+    continue;
+  }
+  if (/^- \[ \] /.test(linea)) {
+    bloques.push(casillaVerificacion(linea.slice(6)));
+    bloques.push(espacio(80));
+    i++; continue;
+  }
+  if (linea.startsWith("> ")) {
+    bloques.push(notaDestacada(linea.slice(2)));
+    bloques.push(espacio(120));
     i++; continue;
   }
   const img = /^!\[([^\]]*)\]\(([^)]+)\)/.exec(linea);
@@ -258,10 +357,10 @@ const portada = [
   new Paragraph({ spacing: { before: 0, after: 0 }, children: [fondoDePagina("portada.png")] }),
   new Paragraph({ spacing: { before: 2600, after: 360 }, children: [new TextRun({ text: "COMPROBANTEPY", font: TEXTO, size: pt(14), bold: true, color: AZUL, characterSpacing: 40 })] }),
   new Paragraph({ spacing: { before: 0, after: 120, line: 240, lineRule: LineRuleType.AUTO }, children: [
-    new TextRun({ text: "Instructivo de ", font: TITULOS, size: pt(54), bold: true, color: CARBON }),
-    new TextRun({ text: "usuario", font: TITULOS, size: pt(54), bold: true, color: AZUL }),
+    new TextRun({ text: CONFIG.portada[0], font: TITULOS, size: pt(54), bold: true, color: CARBON }),
+    new TextRun({ text: CONFIG.portada[1], font: TITULOS, size: pt(54), bold: true, color: AZUL }),
   ] }),
-  new Paragraph({ spacing: { before: 120, after: 480 }, children: [new TextRun({ text: "Qué hace el sistema y cómo se usa cada módulo", font: TEXTO, size: pt(17), color: CARBON })] }),
+  new Paragraph({ spacing: { before: 120, after: 480 }, children: [new TextRun({ text: CONFIG.subtitulo, font: TEXTO, size: pt(17), color: CARBON })] }),
   new Paragraph({ spacing: { before: 0, after: 0 }, children: [new TextRun({ text: "  Recepción, validación y exportación de comprobantes a Marangatu (DNIT)  ", font: TEXTO, size: pt(12), bold: true, color: CARBON, shading: { type: ShadingType.CLEAR, fill: VERDE, color: "auto" } })] }),
   new Paragraph({ spacing: { before: 2400, after: 0 }, children: [new TextRun({ text: "Versión del 10/10/2026", font: TEXTO, size: pt(12), color: CARBON })] }),
 ];
@@ -271,8 +370,8 @@ const agenda = [
   new Paragraph({ children: [new PageBreak()] }),
   new Paragraph({ spacing: { before: 0, after: 0 }, children: [fondoDePagina("agenda.png")] }),
   new Paragraph({ spacing: { before: 0, after: 360 }, children: [
-    new TextRun({ text: "Contenido del ", font: TITULOS, size: pt(46), bold: true, color: CARBON }),
-    new TextRun({ text: "instructivo", font: TITULOS, size: pt(46), bold: true, color: AZUL }),
+    new TextRun({ text: CONFIG.agenda[0], font: TITULOS, size: pt(46), bold: true, color: CARBON }),
+    new TextRun({ text: CONFIG.agenda[1], font: TITULOS, size: pt(46), bold: true, color: AZUL }),
   ] }),
   ...secciones.map((s, k) => new Paragraph({ spacing: { before: 0, after: 200 },
     border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: GRIS_BORDE, space: 6 } },
@@ -287,11 +386,11 @@ const cierre = [
   new Paragraph({ children: [new PageBreak()] }),
   new Paragraph({ spacing: { before: 0, after: 0 }, children: [fondoDePagina("cierre.png")] }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 3400, after: 240 }, children: [
-    new TextRun({ text: "Listo para ", font: TITULOS, size: pt(54), bold: true, color: CARBON }),
-    new TextRun({ text: "empezar", font: TITULOS, size: pt(54), bold: true, color: AZUL }),
+    new TextRun({ text: CONFIG.cierre[0], font: TITULOS, size: pt(54), bold: true, color: CARBON }),
+    new TextRun({ text: CONFIG.cierre[1], font: TITULOS, size: pt(54), bold: true, color: AZUL }),
   ] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 360 }, children: [new TextRun({ text: "Instalación, comandos y solución de problemas: archivo GUIA.md del proyecto.", font: TEXTO, size: pt(15), color: CARBON })] }),
-  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "  Ante cualquier error, anotá qué estabas haciendo y el mensaje completo.  ", font: TEXTO, size: pt(13), bold: true, color: CARBON, shading: { type: ShadingType.CLEAR, fill: VERDE, color: "auto" } })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 360 }, children: [new TextRun({ text: CONFIG.cierreTexto, font: TEXTO, size: pt(15), color: CARBON })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `  ${CONFIG.cierreNota}  `, font: TEXTO, size: pt(13), bold: true, color: CARBON, shading: { type: ShadingType.CLEAR, fill: VERDE, color: "auto" } })] }),
 ];
 
 const numeraciones = [
@@ -302,19 +401,19 @@ const numeraciones = [
 ];
 
 const pie = new Footer({ children: [new Paragraph({ children: [
-  new TextRun({ text: "ComprobantePy · Instructivo de usuario", font: TEXTO, size: pt(10), color: GRIS_TEXTO }),
+  new TextRun({ text: CONFIG.titulo.replace(" – ", " · "), font: TEXTO, size: pt(10), color: GRIS_TEXTO }),
   new TextRun({ children: [new PositionalTab({ alignment: PositionalTabAlignment.RIGHT, relativeTo: PositionalTabRelativeTo.MARGIN, leader: PositionalTabLeader.NONE })] }),
   new TextRun({ children: [PageNumber.CURRENT], font: TEXTO, size: pt(10), color: GRIS_TEXTO }),
 ] })] });
 
 // Etiqueta en píldora verde, arriba a la derecha.
 const encabezado = new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [
-  new TextRun({ text: "  Instructivo de usuario  ", font: TEXTO, size: pt(10), bold: true, color: CARBON, shading: { type: ShadingType.CLEAR, fill: VERDE, color: "auto" } }),
+  new TextRun({ text: `  ${CONFIG.etiqueta}  `, font: TEXTO, size: pt(10), bold: true, color: CARBON, shading: { type: ShadingType.CLEAR, fill: VERDE, color: "auto" } }),
 ] })] });
 
 const doc = new Document({
   creator: "ComprobantePy",
-  title: "ComprobantePy – Instructivo de usuario",
+  title: CONFIG.titulo,
   styles: {
     default: { document: { run: { font: TEXTO, size: pt(13), color: CARBON }, paragraph: { spacing: { line: 276, lineRule: LineRuleType.AUTO } } } },
     paragraphStyles: [
