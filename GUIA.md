@@ -93,6 +93,22 @@ Se instalan **una sola vez**. Ya tenés **Git** y **VS Code**.
 | **Node.js 22 o superior** (versión LTS) | Ejecutar la aplicación | <https://nodejs.org> |
 | **Docker Desktop** | Ejecutar la base de datos sin instalarla a mano | <https://www.docker.com/products/docker-desktop/> |
 
+### Antes de instalar Docker: comprobar la virtualización
+
+Docker necesita que la **virtualización** del procesador esté activada:
+
+1. Abrí el **Administrador de tareas** (`Ctrl + Shift + Esc`).
+2. Pestaña **Rendimiento → CPU**.
+3. Abajo a la derecha tiene que decir **Virtualización: Habilitado**.
+
+**Si dice "Deshabilitado":** hay que activarla en la BIOS.
+
+1. Reiniciá la PC y, apenas aparece el logo, presioná varias veces la tecla de la BIOS. En notebooks **Acer** suele ser **F2**.
+2. Buscá la opción **Intel Virtualization Technology** (o "VT-x"), normalmente en la pestaña **Advanced** o **Main**, y ponela en **Enabled**.
+3. Guardá y salí con **F10 → Yes**.
+
+Si no encontrás la opción, pedile ayuda a alguien con conocimientos técnicos: es un cambio seguro y no borra nada.
+
 ### Instalación rápida con winget (Windows 10/11)
 
 Abrí **PowerShell como administrador** (clic derecho en el botón Inicio → "Terminal (administrador)") y ejecutá:
@@ -623,6 +639,7 @@ df -h                                                      # espacio en disco
 |---|---|---|
 | `node no se reconoce como comando` | Node no instalado, o VS Code abierto desde antes | Instalá Node 22 y **cerrá y abrí VS Code** |
 | `docker: error during connect` o `Cannot connect to the Docker daemon` | Docker Desktop cerrado | Abrí Docker Desktop y esperá "Engine running" |
+| Docker Desktop dice "Virtualization support not detected" | Virtualización desactivada en la BIOS | Ver "Antes de instalar Docker: comprobar la virtualización" en la [sección 2](#2-programas-que-hay-que-instalar-en-la-pc) |
 | Docker Desktop pide WSL o no arranca | Falta WSL 2 | PowerShell como administrador: `wsl --install`, reiniciar |
 | `port is already allocated` / `5432` ocupado | Ya hay otro PostgreSQL instalado en la PC | Detené ese PostgreSQL (Servicios de Windows) o cambiá el puerto en `docker-compose.yml` (`"5433:5432"`) y en `.env` (`localhost:5433`) |
 | `3000` o `5173` ocupado | Quedó abierta otra instancia | Cerrá las otras terminales con `Ctrl + C`, o reiniciá VS Code |
