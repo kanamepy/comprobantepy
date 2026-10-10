@@ -6,3 +6,4 @@ coverage/
 .DS_Store
 dev-dist/
 datos/
+diagnostico.txt

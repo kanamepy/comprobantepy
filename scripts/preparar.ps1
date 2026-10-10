@@ -142,6 +142,33 @@ if ((ConsultaBase "SELECT count(*) FROM usuarios") -eq "0") {
   Bien "Ya hay usuarios creados"
 }
 
+# --- 5. Accesos directos en el escritorio -------------------------------------
+if ($enWindows) {
+  Paso "Accesos directos en el escritorio"
+  try {
+    $escritorio = [Environment]::GetFolderPath("Desktop")
+    $shell = New-Object -ComObject WScript.Shell
+    $accesos = @(
+      @{ Nombre = "ComprobantePy - Iniciar";     Destino = "Iniciar.cmd";    Icono = "$env:SystemRoot\System32\shell32.dll,137" },
+      @{ Nombre = "ComprobantePy - Respaldar";   Destino = "Respaldar.cmd";  Icono = "$env:SystemRoot\System32\shell32.dll,7" },
+      @{ Nombre = "ComprobantePy - Actualizar";  Destino = "Actualizar.cmd"; Icono = "$env:SystemRoot\System32\shell32.dll,238" },
+      @{ Nombre = "ComprobantePy - Diagnóstico"; Destino = "Diagnostico.cmd"; Icono = "$env:SystemRoot\System32\shell32.dll,23" },
+      @{ Nombre = "ComprobantePy - Guía paso a paso"; Destino = "docs\Implementacion_y_verificacion_ComprobantePy.docx"; Icono = $null }
+    )
+    foreach ($a in $accesos) {
+      $acceso = $shell.CreateShortcut((Join-Path $escritorio "$($a.Nombre).lnk"))
+      $acceso.TargetPath = Join-Path $raiz $a.Destino
+      $acceso.WorkingDirectory = $raiz
+      if ($a.Icono) { $acceso.IconLocation = $a.Icono }
+      $acceso.Save()
+    }
+    Bien "Se crearon los íconos «ComprobantePy - …» en el escritorio"
+  } catch {
+    Write-Host "    No se pudieron crear los accesos directos (no es grave): $($_.Exception.Message)" -ForegroundColor Yellow
+  }
+}
+
 Write-Host "`nTodo listo." -ForegroundColor Green
-Write-Host "  Iniciar la aplicación:  npm run dev   y abrir http://localhost:5173"
-Write-Host "  Pruebas automáticas:    en VS Code, Terminal > Ejecutar tarea > 'Pruebas automáticas'"
+Write-Host "  Para usar el programa: doble clic en «ComprobantePy - Iniciar» en el escritorio"
+Write-Host "  (o en Iniciar.cmd). Se abre solo el navegador en http://localhost:5173"
+Write-Host "  Si algo falla: doble clic en «ComprobantePy - Diagnóstico» y compartí el archivo diagnostico.txt"
