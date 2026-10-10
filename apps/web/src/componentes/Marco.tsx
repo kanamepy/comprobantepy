@@ -35,10 +35,12 @@ export function Marco() {
   const activos = sesion.contribuyentes.filter((c) => c.estado === "ACTIVO");
 
   return (
-    <div className="min-h-dvh bg-slate-50 pb-20 text-slate-900 md:pb-0">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white print:hidden">
+    <div className="min-h-dvh bg-lavanda-fondo pb-20 text-slate-900 md:pb-0">
+      <header className="sticky top-0 z-10 border-b-4 border-lavanda bg-white print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2">
-          <span className="mr-auto text-lg font-bold text-blue-800">Comprobantes</span>
+          <span className="mr-auto font-[family-name:var(--font-titulo)] text-2xl font-bold text-slate-900">
+            Comprobante<span className="text-blue-700">Py</span>
+          </span>
           <label className="order-last flex basis-full items-center gap-2 md:order-none md:basis-auto">
             <span className="sr-only text-sm font-medium lg:not-sr-only">Contribuyente:</span>
             <select
@@ -68,7 +70,7 @@ export function Marco() {
               key={e.a}
               to={e.a}
               end={e.a === "/"}
-              className={({ isActive }) => `boton ${isActive ? "bg-blue-100 text-blue-900" : "text-slate-700 hover:bg-slate-100"}`}
+              className={({ isActive }) => `boton ${isActive ? "bg-blue-700 text-white" : "text-slate-700 hover:bg-lavanda-claro"}`}
             >
               {e.texto}
             </NavLink>
@@ -101,7 +103,7 @@ export function Marco() {
             to={e.a}
             end={e.a === "/"}
             className={({ isActive }) =>
-              `flex min-h-14 flex-1 flex-col items-center justify-center text-xs ${isActive ? "font-bold text-blue-800" : "text-slate-700"}`
+              `flex min-h-14 flex-1 flex-col items-center justify-center border-t-4 text-xs ${isActive ? "border-blue-700 bg-lavanda-claro font-bold text-blue-800" : "border-transparent text-slate-700"}`
             }
           >
             <span aria-hidden="true">{e.icono}</span>

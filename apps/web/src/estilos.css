@@ -1,5 +1,62 @@
 @import "tailwindcss";
 
+/*
+ * Guía de estilo de ComprobantePy: lavanda predominante, azul Francia (#0055A4) para lo destacado,
+ * verde pastel (#B8ED9C) solo como acento y carbón (#242332) para el texto.
+ * Se redefinen las escalas de Tailwind para que toda la aplicación tome la paleta.
+ */
+@theme {
+  --font-sans: Arial, "Liberation Sans", Helvetica, sans-serif;
+  --font-titulo: "Arial Narrow", "Liberation Sans Narrow", "Roboto Condensed", Arial, sans-serif;
+
+  /* Azul Francia */
+  --color-blue-50: #eef4fb;
+  --color-blue-100: #dce8f5;
+  --color-blue-200: #bcd3ec;
+  --color-blue-300: #8fb4de;
+  --color-blue-400: #4f87c4;
+  --color-blue-500: #2a6fb5;
+  --color-blue-600: #1462ad;
+  --color-blue-700: #0055a4;
+  --color-blue-800: #00468a;
+  --color-blue-900: #003469;
+  --color-blue-950: #00234a;
+
+  /* Grises con tinte lavanda, del gris claro (#F4F4F6) al carbón (#242332) */
+  --color-slate-50: #f4f4f6;
+  --color-slate-100: #eeeaf7;
+  --color-slate-200: #e6dff5;
+  --color-slate-300: #c9c7d6;
+  --color-slate-400: #a19fb4;
+  --color-slate-500: #85839a;
+  --color-slate-600: #6b6980;
+  --color-slate-700: #4a4860;
+  --color-slate-800: #34334a;
+  --color-slate-900: #242332;
+  --color-slate-950: #17161f;
+
+  /* Verde pastel como acento; tonos oscuros para texto legible */
+  --color-green-50: #effbe8;
+  --color-green-100: #b8ed9c;
+  --color-green-200: #a3e382;
+  --color-green-300: #86d35f;
+  --color-green-700: #2f6f1c;
+  --color-green-800: #275d17;
+  --color-green-900: #1d4711;
+
+  /* Lavanda */
+  --color-lavanda: #b9a7e2;
+  --color-lavanda-claro: #e6dff5;
+  --color-lavanda-fondo: #f3effa;
+  --color-carbon: #242332;
+}
+
+h1,
+h2 {
+  font-family: var(--font-titulo);
+  letter-spacing: 0.01em;
+}
+
 /* Accesibilidad (sección 16.4): base de 16 px, foco visible y controles de al menos 44 × 44 px. */
 :root {
   font-size: 16px;
@@ -40,10 +97,10 @@ html[data-texto="extra"] {
 }
 
 @utility tarjeta {
-  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+  @apply rounded-2xl border border-transparent bg-white p-4 shadow-[0_1px_3px_rgb(36_35_50/0.08)];
 }
 
 :focus-visible {
-  outline: 3px solid #f59e0b;
+  outline: 3px solid #242332;
   outline-offset: 2px;
 }

@@ -69,7 +69,7 @@ export function Inicio() {
               <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {GRUPOS.map((g) => (
                   <li key={g.texto} className="tarjeta">
-                    <p className="text-3xl font-bold">{filas.filter((f) => g.estados.includes(f.estadoFlujo)).length}</p>
+                    <p className="font-[family-name:var(--font-titulo)] text-4xl font-bold text-blue-700">{filas.filter((f) => g.estados.includes(f.estadoFlujo)).length}</p>
                     <p className="text-slate-700">{g.texto}</p>
                   </li>
                 ))}

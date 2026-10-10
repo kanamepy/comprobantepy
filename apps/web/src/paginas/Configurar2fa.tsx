@@ -37,7 +37,7 @@ export function Configurar2fa() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-slate-100 p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-lavanda p-4">
       <form onSubmit={confirmar} className="tarjeta w-full max-w-md space-y-4">
         <h1 className="text-2xl font-bold text-blue-800">Configurá el segundo factor</h1>
         <p>

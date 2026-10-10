@@ -33,9 +33,12 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-slate-100 p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-lavanda p-4">
       <form onSubmit={enviar} className="tarjeta w-full max-w-sm space-y-4" noValidate>
-        <h1 className="text-2xl font-bold text-blue-800">Comprobantes Marangatu</h1>
+        <p className="text-sm font-bold tracking-[0.15em] text-blue-700">COMPROBANTES · MARANGATU</p>
+        <h1 className="text-3xl font-bold text-slate-900">
+          Comprobante<span className="text-blue-700">Py</span>
+        </h1>
         <Campo
           etiqueta="Correo electrónico"
           type="email"
