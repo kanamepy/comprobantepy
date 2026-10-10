@@ -341,7 +341,7 @@ Hacé estas pruebas con comprobantes **reales**. Anotá en una lista todo lo que
 ### Prueba 3 — Imputación y flujo
 
 1. En el comprobante, **Obligaciones y actividades** → imputalo (por ejemplo, 100 % IVA).
-2. Botones: **Enviar a revisión → Confirmar → Aprobar**. Probá también **Observar**, **Rechazar** y **Anular** (piden motivo).
+2. Cuando no le falta nada queda **Pendiente de revisión**: botones **Confirmar** y después **Aprobar** (Financiero). Probá también **Observar** (después corregí y usá **Enviar a revisión**), **Rechazar** y **Anular** (piden motivo).
 3. ✅ Esperado: cada paso queda en el **Historial** con fecha y usuario.
 
 ### Prueba 4 — Exportación a Marangatu (la más importante)
@@ -738,14 +738,18 @@ Después de cambiar el `.env`, **reiniciá** la aplicación (`Ctrl + C` y `npm r
 
 | Estado | Significa |
 |---|---|
-| Pendiente de datos | Faltan datos obligatorios |
-| Pendiente de revisión | Listo para que alguien lo revise |
+| Faltan datos | Falta algún dato obligatorio |
+| Falta asignar contribuyente | No se sabe a quién corresponde |
+| Proveedor a confirmar | El emisor es nuevo y hay que confirmarlo |
+| Posible duplicado | Se parece a otro ya cargado |
+| Pendiente de revisión | Completo y listo para que alguien lo confirme |
 | Confirmado | Revisado por un auxiliar o financiero |
-| Aprobado | Aprobado por el financiero: puede exportarse |
+| Aprobado | Aprobado por el financiero: si es físico, puede exportarse |
 | Observado | Tiene algo para corregir (por ejemplo, rechazado por la DNIT) |
 | Rechazado | No corresponde registrarlo |
-| Exportado | Incluido en un archivo para Marangatu |
 | Anulado | Dado de baja (con motivo); no cuenta |
+
+Los cinco primeros los calcula el sistema solo; los demás se alcanzan con los botones. Que un comprobante se haya exportado se ve aparte, en su **estado en Marangatu**.
 
 **Naturaleza:** *Físico* (factura de papel con timbrado; **se exporta** a Marangatu), *Electrónico* (SIFEN, con CDC; **no se exporta**, ya lo informa el emisor), *Virtual* (no se exporta).
 
