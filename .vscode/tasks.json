@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Preparar el proyecto (primera vez)",
+      "type": "shell",
+      "windows": { "command": "powershell -ExecutionPolicy Bypass -File scripts\\preparar.ps1" },
+      "command": "echo 'En Mac o Linux seguí los pasos del README, o usá el Dev Container.'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Iniciar la aplicación",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Pruebas automáticas",
+      "type": "npm",
+      "script": "test",
+      "options": {
+        "env": {
+          "TEST_DATABASE_URL": "${env:TEST_DATABASE_URL}"
+        }
+      },
+      "windows": {
+        "options": {
+          "env": { "TEST_DATABASE_URL": "postgres://comprobantepy:comprobantepy@localhost:5432/comprobantepy_test" }
+        }
+      },
+      "osx": {
+        "options": {
+          "env": { "TEST_DATABASE_URL": "postgres://comprobantepy:comprobantepy@localhost:5432/comprobantepy_test" }
+        }
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Crear un respaldo",
+      "type": "npm",
+      "script": "respaldo",
+      "problemMatcher": []
+    }
+  ]
+}

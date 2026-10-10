@@ -1,0 +1,32 @@
+# Servicios del entorno de desarrollo (Dev Container).
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/comprobantepy:cached
+      # node_modules dentro del contenedor: más rápido y sin mezclar binarios de Windows y Linux.
+      - node_modules:/workspaces/comprobantepy/node_modules
+    command: sleep infinity
+    environment:
+      DATABASE_URL: postgres://comprobantepy:comprobantepy@postgres:5432/comprobantepy
+      TEST_DATABASE_URL: postgres://comprobantepy:comprobantepy@postgres:5432/comprobantepy_test
+      URL_PUBLICA: http://localhost:5173
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      APP_DB_PASSWORD: comprobantepy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../docker/postgres:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  node_modules:
+  pgdata:

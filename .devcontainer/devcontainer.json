@@ -1,0 +1,41 @@
+// Entorno de desarrollo completo dentro de Docker: Node.js, PostgreSQL y las herramientas.
+// En la PC solo hacen falta Docker Desktop, VS Code y la extensión "Dev Containers".
+// VS Code: "Reopen in Container" (Reabrir en contenedor).
+{
+  "name": "ComprobantePy",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/comprobantepy",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [5173, 3000],
+  "portsAttributes": {
+    "5173": { "label": "Aplicación", "onAutoForward": "openBrowser" },
+    "3000": { "label": "API", "onAutoForward": "silent" }
+  },
+  // La primera vez: dependencias, tablas y base de pruebas.
+  "postCreateCommand": "bash .devcontainer/preparar.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "vitest.explorer",
+        "bradlc.vscode-tailwindcss",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ],
+      "settings": {
+        "sqltools.connections": [
+          {
+            "name": "ComprobantePy",
+            "driver": "PostgreSQL",
+            "server": "postgres",
+            "port": 5432,
+            "database": "comprobantepy",
+            "username": "comprobantepy",
+            "password": "comprobantepy"
+          }
+        ]
+      }
+    }
+  }
+}

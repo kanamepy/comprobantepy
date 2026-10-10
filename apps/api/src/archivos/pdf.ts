@@ -16,12 +16,13 @@ export interface TextoPdf {
 }
 
 export async function extraerTextoPdf(contenido: Buffer): Promise<TextoPdf> {
-  const documento = await getDocument({
+  const tarea = getDocument({
     data: new Uint8Array(contenido),
     useSystemFonts: false,
     standardFontDataUrl: fuentesEstandar,
     verbosity: 0,
-  }).promise;
+  });
+  const documento = await tarea.promise;
   try {
     const partes: string[] = [];
     for (let numero = 1; numero <= documento.numPages; numero++) {
@@ -43,17 +44,18 @@ export async function extraerTextoPdf(contenido: Buffer): Promise<TextoPdf> {
     const texto = partes.join("\n").replace(/[ \t]+/g, " ");
     return { texto, paginas: documento.numPages, escaneado: texto.replace(/\s/g, "").length < 30 };
   } finally {
-    await documento.destroy();
+    await tarea.destroy();
   }
 }
 
 /** Convierte las primeras páginas de un PDF escaneado en imágenes PNG para el OCR. */
 export async function renderizarPaginas(contenido: Buffer, maximo = 2, escala = 2.5): Promise<Buffer[]> {
-  const documento = await getDocument({
+  const tarea = getDocument({
     data: new Uint8Array(contenido),
     standardFontDataUrl: fuentesEstandar,
     verbosity: 0,
-  }).promise;
+  });
+  const documento = await tarea.promise;
   try {
     const imagenes: Buffer[] = [];
     for (let numero = 1; numero <= Math.min(documento.numPages, maximo); numero++) {
@@ -69,6 +71,6 @@ export async function renderizarPaginas(contenido: Buffer, maximo = 2, escala = 
     }
     return imagenes;
   } finally {
-    await documento.destroy();
+    await tarea.destroy();
   }
 }
